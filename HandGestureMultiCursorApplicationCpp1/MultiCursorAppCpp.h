@@ -83,7 +83,7 @@ private:
 		FLOAT handZ3d;
 	} UserData;
 
-	UserData *usreData;
+	UserData *userData;
 
 	/* Functions */
 	void createInstance();
@@ -91,7 +91,8 @@ private:
 	void getDepthImage();
 	void getRgbImage();
 	
-	CvBlobs labelingUserArea();
+	CvBlobs labelingUserArea(Mat& mat);
+	void detectHeadPosition(CvBlobs blobs);
 
 
 	/* Each pixel or 3D point data */

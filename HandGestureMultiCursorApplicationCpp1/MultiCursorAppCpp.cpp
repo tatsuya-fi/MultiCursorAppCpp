@@ -54,9 +54,10 @@ void MultiCursorAppCpp::run()
 		getFrameData();
 
 		/* 2. Detect users' head positions */
-		CvBlobs blobs = labelingUserArea();
+		CvBlobs blobs = labelingUserArea(userAreaMat);
 
-		
+		/* 3. Detect user' hand postiions */
+		detectHeadPosition(blobs);
 
 		// Key check for quit
 		int key = waitKey(10);
@@ -152,9 +153,6 @@ void MultiCursorAppCpp::getDepthImage()
 
 	// Release each data
 	ERROR_CHECK(kinect->NuiImageStreamReleaseFrame(depthStreamHandle, &depthFrame));
-
-	// Debug: Show depth image
-	//imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
 }
 
 void MultiCursorAppCpp::getRgbImage()
@@ -173,41 +171,111 @@ void MultiCursorAppCpp::getRgbImage()
 	// フレームデータを解放する
 	ERROR_CHECK(kinect->NuiImageStreamReleaseFrame(imageStreamHandle, &imageFrame));
 
+	// Debug: Show rgb image
 	imshow(COLOR_IMAGE_WINDOW_NAME, rgbImage);
 }
 
-CvBlobs MultiCursorAppCpp::labelingUserArea()
+CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 {
 
 	// Make image dilating for stable labeling
-	dilate(userAreaMat, userAreaMat, Mat(), Point(-1, -1), 3);
+	dilate(src, src, Mat(), Point(-1, -1), 3);
 
 	/* Use IplImage (Labeling for Mat is not fully implemented) */
 	// Convert to IplImage
-	IplImage srcIpl = (IplImage)userAreaMat;
+	IplImage srcIpl = (IplImage)src;
 	// Convert to gray scale
-	IplImage *srcIplBinary = cvCreateImage(cvGetSize(&srcIpl), IPL_DEPTH_8U, 1);
+	IplImage* srcIplBinary = cvCreateImage(cvGetSize(&srcIpl), IPL_DEPTH_8U, 1);
 	cvCvtColor(&srcIpl, srcIplBinary, CV_BGR2GRAY);
 	// Get binary image
 	cvThreshold(srcIplBinary, srcIplBinary, 100, 255, CV_THRESH_BINARY);
 	// Get blobs
-	IplImage *labelImg = cvCreateImage(cvGetSize(srcIplBinary), IPL_DEPTH_LABEL, 1);
+	IplImage* labelImg = cvCreateImage(cvGetSize(srcIplBinary), IPL_DEPTH_LABEL, 1);
 
 	CvBlobs blobs;
 	UINT result = cvLabel(srcIplBinary, labelImg, blobs);
 
-	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
+	// Filter small label
+	cvFilterByArea(blobs, 500, 1000000);
 
+	// Render blobs
+	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
+	
 	// Free unused IplImages
 	cvReleaseImage(&labelImg);
 	cvReleaseImage(&srcIplBinary);
 
-	// Debug: Show depth image
-	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
-
 	return blobs;
 }
 
+void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
+{
+	// Prepare list of data
+	userData = new UserData[blobs.size()];
+
+	int blobID = 0;
+	// Find the highest point of each user area
+	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
+		for (int y = it->second->miny; y < it->second->maxy; y++) {
+			for (int x = it->second->minx; x < it->second->maxx; x++) {
+				if (0 <= blobID && blobID < blobs.size()) {
+					if (userData[blobID].headHeight < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX) {
+						userData[blobID].headHeight = heightMatrix.at<USHORT>(y, x);
+						userData[blobID].headX2d = x;
+						userData[blobID].headY2d = y;
+					}
+
+				}
+			}
+		}
+		circle(userAreaMat, Point(userData[blobID].headX2d, userData[blobID].headY2d), 5, Scalar(255, 0, 255), 2);
+
+		blobID++;
+	}
+
+	// Define users' head positions
+	Point2i* headPositions = new Point2i[blobs.size()];
+	int* numHeadPoints = new int[blobs.size()];
+	blobID = 0;
+	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
+		numHeadPoints[blobID] = 0;
+		for (int y = it->second->miny; y < it->second->maxy; y++) {
+			for (int x = it->second->minx; x < it->second->maxx; x++) {
+				if (0 <= blobID && blobID < blobs.size()) {
+					if ((userData[blobID].headHeight - HEAD_LENGTH) < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX) {
+						headPositions[blobID].x += x;
+						headPositions[blobID].y += y;
+						numHeadPoints[blobID]++;
+					}
+				}
+			}
+		}
+		blobID++;
+	}
+
+	// Make avarage pixel value of each head positions the head positions of users
+	for (int i = 0; i < blobs.size(); i++)
+	{
+		if (numHeadPoints[i] != 0)
+		{
+			// Set head position in 2D pixel
+			userData[i].headX2d = headPositions[i].x / numHeadPoints[i];
+			userData[i].headY2d = headPositions[i].y / numHeadPoints[i];
+			// Set head position in 3D point
+			userData[i].headX3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[0];
+			userData[i].headY3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[1];
+			userData[i].headZ3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[2];
+			// Show head positions
+			cout << numHeadPoints[i] << endl;
+
+			// Debug: Show the highest point
+			circle(userAreaMat, Point(userData[i].headX2d, userData[i].headY2d), 6, Scalar(255, 0, 0), 3);
+		}
+	}
+	//cout << userData[0].headX2d << ", " << userData[0].headY2d << endl;
+	// Debug: Show depth image
+	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
+}
 
 void main()
 {
