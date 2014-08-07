@@ -91,7 +91,7 @@ private:
 	void getDepthImage();
 	void getRgbImage();
 	
-	void labelingUserArea(Mat& userAreaMat);
+	CvBlobs labelingUserArea();
 
 
 	/* Each pixel or 3D point data */
