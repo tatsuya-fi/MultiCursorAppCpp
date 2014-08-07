@@ -63,7 +63,7 @@ void MultiCursorAppCpp::run()
 		detectHandPosition(blobs);
 
 		/* 5. Draw cursors position */
-		drawCursor();
+		drawCursor(blobs);
 
 		// Key check for quit
 		int key = waitKey(10);
@@ -202,7 +202,7 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 	UINT result = cvLabel(srcIplBinary, labelImg, blobs);
 
 	// Filter small label
-	cvFilterByArea(blobs, 500, 1000000);
+	cvFilterByArea(blobs, 1000, 1000000);
 
 	// Render blobs
 	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
@@ -374,14 +374,11 @@ void MultiCursorAppCpp::drawCursor(CvBlobs blobs)
 	}
 }
 
-void MultiCurSorAppCpp::MouseControl(Point cursor, int id)
+void MultiCursorAppCpp::MouseControl(Point cursor, int id)
 {
-	DWORD dwX;
-	DWORD dwY;
-
 	// スクリーン座標をmouse_event()用の座標変換
-	dwX = dwX * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
-	dwY = dwY * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
+	DWORD dwX = cursor.x * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
+	DWORD dwY = cursor.y * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
 
 	// Set mouse cursor position
 	::mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, dwX, dwY, NULL, NULL);
