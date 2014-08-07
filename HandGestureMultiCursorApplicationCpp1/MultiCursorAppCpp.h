@@ -24,7 +24,7 @@ const int SHOULDER_LENGTH = 280;
 const int HEAD_LENGTH = 220;
 
 // éËÇåüèoÇ∑ÇÈÇΩÇﬂÇÃ, ì™ÇíÜêSÇ∆ÇµÇΩãÖÇÃîºåa [mm]
-const short SENCIG_CIRCLE_RADIUS = 30;
+const float SENCIG_CIRCLE_RADIUS = 0.6f;
 
 ///
 /// </Settings>
@@ -68,6 +68,14 @@ private:
 	DWORD width;
 	DWORD height;
 
+	/* Each pixel or 3D point data */
+	Mat	userAreaMat;	// Areas of each users
+	Mat point3fMatrix;	// 3D points of the observed points
+	Mat heightMatrix;	// Heights of each pixel from the floor
+
+	Mat rgbImage;		// A image from kinect color camera
+
+	// Data for each user
 	typedef struct {
 		INT headHeight;
 
@@ -93,19 +101,7 @@ private:
 	
 	CvBlobs labelingUserArea(Mat& mat);
 	void detectHeadPosition(CvBlobs blobs);
-
-
-	/* Each pixel or 3D point data */
-	Mat	userAreaMat;	// Areas of each users
-	Mat point3fMatrix;	// 3D points of the observed points
-	Mat heightMatrix;	// Heights of each pixel from the floor
-
-	Mat rgbImage;		// A image from kinect color camera
-
-	/* Params */
-
-	
-
+	void detectHandPosition(CvBlobs blobs);
 
 
 

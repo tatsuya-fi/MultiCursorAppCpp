@@ -56,8 +56,11 @@ void MultiCursorAppCpp::run()
 		/* 2. Detect users' head positions */
 		CvBlobs blobs = labelingUserArea(userAreaMat);
 
-		/* 3. Detect user' hand postiions */
+		/* 3. Detect users' head postiions */
 		detectHeadPosition(blobs);
+
+		/* 4. Detect users' hand positions */
+		detectHandPosition(blobs);
 
 		// Key check for quit
 		int key = waitKey(10);
@@ -213,11 +216,11 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 	// Prepare list of data
 	userData = new UserData[blobs.size()];
 
-	int blobID = 0;
+	INT blobID = 0;
 	// Find the highest point of each user area
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
-		for (int y = it->second->miny; y < it->second->maxy; y++) {
-			for (int x = it->second->minx; x < it->second->maxx; x++) {
+		for (int y = it->second->miny; y <= it->second->maxy; y++) {
+			for (int x = it->second->minx; x <= it->second->maxx; x++) {
 				if (0 <= blobID && blobID < blobs.size()) {
 					if (userData[blobID].headHeight < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX) {
 						userData[blobID].headHeight = heightMatrix.at<USHORT>(y, x);
@@ -228,19 +231,20 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 				}
 			}
 		}
-		circle(userAreaMat, Point(userData[blobID].headX2d, userData[blobID].headY2d), 5, Scalar(255, 0, 255), 2);
+		// Debug: Show the highest point of each users
+		//circle(userAreaMat, Point(userData[blobID].headX2d, userData[blobID].headY2d), 5, Scalar(255, 0, 255), 2);
 
 		blobID++;
 	}
 
 	// Define users' head positions
 	Point2i* headPositions = new Point2i[blobs.size()];
-	int* numHeadPoints = new int[blobs.size()];
+	INT* numHeadPoints = new INT[blobs.size()];
 	blobID = 0;
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
 		numHeadPoints[blobID] = 0;
-		for (int y = it->second->miny; y < it->second->maxy; y++) {
-			for (int x = it->second->minx; x < it->second->maxx; x++) {
+		for (int y = it->second->miny; y <= it->second->maxy; y++) {
+			for (int x = it->second->minx; x <= it->second->maxx; x++) {
 				if (0 <= blobID && blobID < blobs.size()) {
 					if ((userData[blobID].headHeight - HEAD_LENGTH) < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX) {
 						headPositions[blobID].x += x;
@@ -265,14 +269,71 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 			userData[i].headX3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[0];
 			userData[i].headY3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[1];
 			userData[i].headZ3d = point3fMatrix.at<Vec3f>(userData[i].headY2d, userData[i].headX2d)[2];
-			// Show head positions
-			cout << numHeadPoints[i] << endl;
 
-			// Debug: Show the highest point
-			circle(userAreaMat, Point(userData[i].headX2d, userData[i].headY2d), 6, Scalar(255, 0, 0), 3);
+			// Debug: Show the head point
+			circle(userAreaMat, Point(userData[i].headX2d, userData[i].headY2d), 7, Scalar(255, 0, 0), 3);
 		}
 	}
-	//cout << userData[0].headX2d << ", " << userData[0].headY2d << endl;
+}
+
+void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
+{
+	FLOAT offset = 0.001f;
+	INT blobID = 0;
+	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
+		int numIntersectionPoints = 0;
+		Point3f handPosition = Point3_<FLOAT>(0.0f, 0.0f, 0.0f);
+		Point3f center3f = Point3_<FLOAT>(userData[blobID].headX3d, userData[blobID].headY3d, userData[blobID].headZ3d);
+		for (int y = it->second->miny; y <= it->second->maxy; y++) {
+			for (int x = it->second->minx; x <= it->second->maxx; x++)
+			{
+				float length = (float)sqrt(
+					pow(center3f.x - point3fMatrix.at<Vec3f>(y, x)[0], 2)
+					+ pow(center3f.y - point3fMatrix.at<Vec3f>(y, x)[1], 2)
+					+ pow(center3f.z - point3fMatrix.at<Vec3f>(y, x)[2], 2)
+					);
+				// Define the intersection point of the sphere which its center is head and the hand as the hand position 
+				if (SENCIG_CIRCLE_RADIUS - offset < length && length < SENCIG_CIRCLE_RADIUS + offset
+					&& heightMatrix.at<USHORT>(y, x) > userData[blobID].headHeight - HEAD_LENGTH - SHOULDER_LENGTH) // Don't include desk
+				{
+					handPosition.x += point3fMatrix.at<Vec3f>(y, x)[0];
+					handPosition.y += point3fMatrix.at<Vec3f>(y, x)[1];
+					handPosition.z += point3fMatrix.at<Vec3f>(y, x)[2];
+
+					circle(userAreaMat, Point(x, y), 3, Scalar(255, 0, 255), -1);
+					numIntersectionPoints++;
+				}
+			}
+		}
+
+		if (numIntersectionPoints > 0) {
+			handPosition.x /= numIntersectionPoints;
+			handPosition.y /= numIntersectionPoints;
+			handPosition.z /= numIntersectionPoints;
+
+			userData[blobID].handX3d = handPosition.x;
+			userData[blobID].handY3d = handPosition.y;
+			userData[blobID].handZ3d = handPosition.z;
+
+			// Show the hand positions on the depth image
+			Vector4 p;
+			p.x = handPosition.x;
+			p.y = handPosition.y;
+			p.z = handPosition.z;
+			p.w = 1;
+			LONG handPointX;
+			LONG handPointY;
+			USHORT dis;
+			NuiTransformSkeletonToDepthImage(p, &handPointX, &handPointY, &dis);
+			circle(userAreaMat, Point(handPointX, handPointY), 7, Scalar(0, 255, 0), 3);
+		}
+		else
+		{
+			userData[blobID].handX3d = 0.0f;
+			userData[blobID].handY3d = 0.0f;
+			userData[blobID].handZ3d = 0.0f;
+		}
+	}
 	// Debug: Show depth image
 	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
 }
