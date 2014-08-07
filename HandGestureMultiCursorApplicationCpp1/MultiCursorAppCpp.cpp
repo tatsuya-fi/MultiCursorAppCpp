@@ -62,6 +62,9 @@ void MultiCursorAppCpp::run()
 		/* 4. Detect users' hand positions */
 		detectHandPosition(blobs);
 
+		/* 5. Draw cursors position */
+		drawCursor();
+
 		// Key check for quit
 		int key = waitKey(10);
 		if (key == 'q' || key == KEY_ESC) {
@@ -336,6 +339,52 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 	}
 	// Debug: Show depth image
 	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
+}
+
+void MultiCursorAppCpp::drawCursor(CvBlobs blobs)
+{
+	INT blobID = 0;
+	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
+		Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handX3d, userData[blobID].handY3d, userData[blobID].handZ3d, 1);
+		Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headX3d, userData[blobID].headY3d, userData[blobID].headZ3d, 1);
+
+		Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
+		Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
+
+		// Caliculate the intersection point of vector and screen
+		float xvec = handPointScreen.at<float>(0, 0) - headPointScreen.at<float>(0, 0);
+		float yvec = handPointScreen.at<float>(1, 0) - headPointScreen.at<float>(1, 0);
+		float zvec = handPointScreen.at<float>(2, 0) - headPointScreen.at<float>(2, 0);
+
+		float val = -handPointScreen.at<float>(2, 0) / zvec;
+
+		// Calculate cursor position in real scall
+		Point3f cursorScreen3d;
+		cursorScreen3d.x = val * xvec + headPointScreen.at<float>(0,0);
+		cursorScreen3d.y = val * yvec + headPointScreen.at<float>(1,0);
+		cursorScreen3d.z = 0.0f;
+		// Calculate cursor position in pixel coordinate
+		float screen3dTo2d = 246 / 0.432f;
+		Point cursorScreen2d;
+		cursorScreen2d.x = (double)(cursorScreen3d.x * screen3dTo2d);
+		cursorScreen2d.y = (double)(cursorScreen3d.y * screen3dTo2d);
+
+		// Set the mouse cursor
+		MouseControl(cursorScreen2d, blobID);
+	}
+}
+
+void MultiCurSorAppCpp::MouseControl(Point cursor, int id)
+{
+	DWORD dwX;
+	DWORD dwY;
+
+	// スクリーン座標をmouse_event()用の座標変換
+	dwX = dwX * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
+	dwY = dwY * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
+
+	// Set mouse cursor position
+	::mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, dwX, dwY, NULL, NULL);
 }
 
 void main()
