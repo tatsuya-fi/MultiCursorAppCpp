@@ -25,7 +25,8 @@ void MultiCursorAppCpp::initialize()
 	ERROR_CHECK(kinect->NuiInitialize(NUI_INITIALIZE_FLAG_USES_COLOR | NUI_INITIALIZE_FLAG_USES_DEPTH));
 
 	// RGBカメラを初期化する
-	ERROR_CHECK(kinect->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, KINECT_RESOLUTION,
+	const NUI_IMAGE_RESOLUTION KINECT_RGB_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
+	ERROR_CHECK(kinect->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, KINECT_RGB_RESOLUTION,
 		0, 2, 0, &imageStreamHandle));
 
 	// 距離カメラを初期化する
@@ -99,7 +100,7 @@ void MultiCursorAppCpp::getFrameData()
 	// Wait for updating frame data
 	DWORD ret = ::WaitForSingleObject(streamEvent, INFINITE);
 	::ResetEvent(streamEvent);
-		
+
 	// Get depth image
 	getDepthImage();
 
@@ -151,7 +152,7 @@ void MultiCursorAppCpp::getDepthImage()
 		}
 
 		// ポイントクラウドを記憶 / Set 3D point data
-		Vector4 realPoint = NuiTransformDepthImageToSkeleton(depthX, depthY, distance, KINECT_RESOLUTION);
+		Vector4 realPoint = NuiTransformDepthImageToSkeleton(depthX, depthY, distance << 3, KINECT_RESOLUTION);
 		point3fMatrix.at<Vec3f>(depthY, depthX)[0] = realPoint.x;
 		point3fMatrix.at<Vec3f>(depthY, depthX)[1] = realPoint.y;
 		point3fMatrix.at<Vec3f>(depthY, depthX)[2] = realPoint.z;
@@ -206,7 +207,7 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 
 	// Render blobs
 	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
-	
+
 	// Free unused IplImages
 	cvReleaseImage(&labelImg);
 	cvReleaseImage(&srcIplBinary);
@@ -285,12 +286,17 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 	INT blobID = 0;
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
 		int numIntersectionPoints = 0;
-		Point3f handPosition = Point3_<FLOAT>(0.0f, 0.0f, 0.0f);
+		Vector4 handPosition;
+		handPosition.w = 1;
+		handPosition.x = 0.0f;
+		handPosition.y = 0.0f;
+		handPosition.z = 0.0f;
 		Point3f center3f = Point3_<FLOAT>(userData[blobID].headX3d, userData[blobID].headY3d, userData[blobID].headZ3d);
+
 		for (int y = it->second->miny; y <= it->second->maxy; y++) {
 			for (int x = it->second->minx; x <= it->second->maxx; x++)
 			{
-				float length = (float)sqrt(
+				float length = sqrt(
 					pow(center3f.x - point3fMatrix.at<Vec3f>(y, x)[0], 2)
 					+ pow(center3f.y - point3fMatrix.at<Vec3f>(y, x)[1], 2)
 					+ pow(center3f.z - point3fMatrix.at<Vec3f>(y, x)[2], 2)
@@ -303,7 +309,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 					handPosition.y += point3fMatrix.at<Vec3f>(y, x)[1];
 					handPosition.z += point3fMatrix.at<Vec3f>(y, x)[2];
 
-					circle(userAreaMat, Point(x, y), 3, Scalar(255, 0, 255), -1);
+					circle(userAreaMat, Point(x, y), 3, Scalar(255, 255, 0), -1);
 					numIntersectionPoints++;
 				}
 			}
@@ -319,16 +325,11 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 			userData[blobID].handZ3d = handPosition.z;
 
 			// Show the hand positions on the depth image
-			Vector4 p;
-			p.x = handPosition.x;
-			p.y = handPosition.y;
-			p.z = handPosition.z;
-			p.w = 1;
-			LONG handPointX;
-			LONG handPointY;
+			LONG handPositionX2d;
+			LONG handPositionY2d;
 			USHORT dis;
-			NuiTransformSkeletonToDepthImage(p, &handPointX, &handPointY, &dis);
-			circle(userAreaMat, Point(handPointX, handPointY), 7, Scalar(0, 255, 0), 3);
+			NuiTransformSkeletonToDepthImage(handPosition, &handPositionX2d, &handPositionY2d, &dis, KINECT_RESOLUTION);
+			circle(userAreaMat, Point(handPositionX2d, handPositionY2d), 7, Scalar(0, 200, 0), 3);
 		}
 		else
 		{
@@ -336,6 +337,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 			userData[blobID].handY3d = 0.0f;
 			userData[blobID].handZ3d = 0.0f;
 		}
+		blobID++;
 	}
 	// Debug: Show depth image
 	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
@@ -360,14 +362,14 @@ void MultiCursorAppCpp::drawCursor(CvBlobs blobs)
 
 		// Calculate cursor position in real scall
 		Point3f cursorScreen3d;
-		cursorScreen3d.x = val * xvec + headPointScreen.at<float>(0,0);
-		cursorScreen3d.y = val * yvec + headPointScreen.at<float>(1,0);
+		cursorScreen3d.x = val * xvec + headPointScreen.at<float>(0, 0);
+		cursorScreen3d.y = val * yvec + headPointScreen.at<float>(1, 0);
 		cursorScreen3d.z = 0.0f;
 		// Calculate cursor position in pixel coordinate
 		float screen3dTo2d = 246 / 0.432f;
 		Point cursorScreen2d;
-		cursorScreen2d.x = (double)(cursorScreen3d.x * screen3dTo2d);
-		cursorScreen2d.y = (double)(cursorScreen3d.y * screen3dTo2d);
+		cursorScreen2d.x = (int)(cursorScreen3d.x * screen3dTo2d);
+		cursorScreen2d.y = (int)(cursorScreen3d.y * screen3dTo2d);
 
 		// Set the mouse cursor
 		MouseControl(cursorScreen2d, blobID);
@@ -376,6 +378,7 @@ void MultiCursorAppCpp::drawCursor(CvBlobs blobs)
 
 void MultiCursorAppCpp::MouseControl(Point cursor, int id)
 {
+	cout << cursor.x << ", " << cursor.y << endl;
 	// スクリーン座標をmouse_event()用の座標変換
 	DWORD dwX = cursor.x * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
 	DWORD dwY = cursor.y * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
