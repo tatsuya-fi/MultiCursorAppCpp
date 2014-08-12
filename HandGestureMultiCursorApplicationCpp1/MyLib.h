@@ -26,6 +26,12 @@
 // </TODO>
 //#define ARTOOLKIT
 
+/* OpenGL */
+/// <TODO>
+/// glutの導入 http://www.natural-science.or.jp/article/20101130220646.php
+/// </TODO>
+#define OPENGL_GLUT
+
 ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -103,6 +109,7 @@
 
 	// NuiApi.hの前にWindows.hをインクルードする
 	#include <Windows.h>
+	#include <Ole2.h>
 	#include <NuiApi.h>
 
 	// ライブラリのリンク（不要な物はコメントアウト）
@@ -117,6 +124,7 @@
 	#endif
 
 #endif
+
 
 #ifdef ARTOOLKIT
 	#include <GL/glut.h>
@@ -140,4 +148,10 @@
 	#pragma comment(lib, "C:\\Program Files (x86)\\ARToolKit\\lib\\libARMulti"		ARTOOLKIT_EXT_STR)
 	#pragma comment(lib, "C:\\Program Files (x86)\\ARToolKit\\lib\\libARvideo"		ARTOOLKIT_EXT_STR)
 	#pragma comment(lib, "C:\\Program Files (x86)\\ARToolKit\\lib\\libARvrml"		ARTOOLKIT_EXT_STR)
+#endif
+
+
+#ifdef OPENGL_GLUT
+	// #include <GL/glut.h>
+	#include <gl/glut.h>
 #endif

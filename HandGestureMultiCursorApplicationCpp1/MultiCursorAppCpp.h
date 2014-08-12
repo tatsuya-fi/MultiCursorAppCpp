@@ -4,7 +4,7 @@
 /// <Settings> 調整可能なパラメータ
 /// 
 
-#define NEAR_MODE		// nearモードを使う場合はコメントを外す
+//#define NEAR_MODE		// nearモードを使う場合はコメントを外す
 
 // The resolution of the kinect depth camera
 const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
@@ -19,7 +19,7 @@ const int HEAD_HEIGHT_MAX = 2400;
 // The height of the desk (This separate objects and users)
 const int DESK_HEIGHT = 700;
 // The length of the user's shoulder [mm]
-const int SHOULDER_LENGTH = 280;
+const int SHOULDER_LENGTH = 100;
 // The lenth of the user's head [mm]
 const int HEAD_LENGTH = 220;
 
@@ -42,8 +42,8 @@ const Mat T_WorldToScreen = (cv::Mat_<float>(4, 4) <<
 /// </Settings>
 ///
 
-#define COLOR_IMAGE_WINDOW_NAME "rgbImage"
-#define DEPTH_IMAGE_WINDOW_NAME "depthImage"
+#define COLOR_IMAGE_WINDOW_NAME "RBG Image"
+#define DEPTH_IMAGE_WINDOW_NAME "Depth Image"
 
 #ifdef NEAR_MODE
 const int SENCEING_MIN = 400;		// 深度画像に表示する最小距離[mm]
@@ -66,8 +66,15 @@ public:
 	MultiCursorAppCpp();
 	~MultiCursorAppCpp();
 
-	void initialize();
+	void initKinect();
 	void run();
+
+	// OpenGL callback function
+	void display(void);
+	void reshape(int w, int h);
+	void idle(void);
+	void keyboard(unsigned char key, int x, int y);
+	//void mouse(int button, int state, int mouse_x, int mouse_y);
 
 private:
 	// Handles
@@ -89,21 +96,28 @@ private:
 
 	// Data for each user
 	typedef struct {
-		INT headHeight;
+		bool isNewData;		// トラッキング開始フレームのみtrue
+		bool isDataFound;	// 前フレームのデータとして参照するとき対応するblobが見つかったかどうか
 
-		INT headX2d;
-		INT headY2d;
+		int headHeight;
 
-		FLOAT headX3d;
-		FLOAT headY3d;
-		FLOAT headZ3d;
+		Point2i head2i;
+		Point3f head3f;
 
-		FLOAT handX3d;
-		FLOAT handY3d;
-		FLOAT handZ3d;
+		Point3f hand3f;
+
+		int centroidX;
+		int centroidY;
+
+		bool isClicking;
+	
 	} UserData;
 
-	UserData *userData;
+	//UserData userData;
+	vector<UserData> userData;
+	vector<UserData> preUserData;
+	vector<UserData>::iterator p;
+	
 
 	/* Functions */
 	void createInstance();
@@ -117,6 +131,13 @@ private:
 	void drawCursor(CvBlobs blobs);
 
 	void MouseControl(Point cursor, int id);
-
-
 };
+
+// GLにコールバック関数を登録する用
+static MultiCursorAppCpp appSub;
+
+void sdisplay();
+void sreshape(int w, int h);
+void sidle(void);
+void skeyboard(unsigned char key, int x, int y);
+//void smouse(int button, int state, int mouse_x, int mouse_y)
