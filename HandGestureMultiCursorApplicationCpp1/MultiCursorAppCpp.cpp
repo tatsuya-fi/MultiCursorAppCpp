@@ -79,8 +79,19 @@ void MultiCursorAppCpp::run()
 		/* 4. Detect users' hand positions */
 		detectHandPosition(blobs);
 
-		/* 5. Draw cursors position */
-		drawCursor(blobs);
+		/* 5. Caluclate cursors position */
+		setCursor(blobs);
+
+		/* 6. Draw cursor */
+		if (userData.size() > 0)
+		{
+			int id = 0;
+			MouseControl(userData[id].cursorPos.x, userData[id].cursorPos.y);
+		}
+
+		/* ex. Show the images */
+		imshow(COLOR_IMAGE_WINDOW_NAME, rgbImage);
+		imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
 
 		// Key check for quit
 		int key = waitKey(10);
@@ -91,6 +102,25 @@ void MultiCursorAppCpp::run()
 	}
 }
 
+void MultiCursorAppCpp::runGL()
+{
+	
+	// Main loop
+	/* 1. Get frame data and prepear data needed */
+	getFrameData();
+
+	/* 2. Detect users' head positions */
+	CvBlobs blobs = labelingUserArea(userAreaMat);
+
+	/* 3. Detect users' head postiions */
+	detectHeadPosition(blobs);
+
+	/* 4. Detect users' hand positions */
+	detectHandPosition(blobs);
+
+	/* 5. Draw cursors position */
+	setCursor(blobs);
+}
 
 void MultiCursorAppCpp::createInstance()
 {
@@ -189,7 +219,6 @@ void MultiCursorAppCpp::getDepthImage()
 		exit(0);
 	}
 
-	//imshow("teseDepth", userAreaMat);
 }
 
 void MultiCursorAppCpp::getRgbImage()
@@ -212,16 +241,13 @@ void MultiCursorAppCpp::getRgbImage()
 		cout << "Error: NuiImageStreamReleaseFrame()" << endl;
 		exit(0);
 	}
-
-	// Debug: Show rgb image
-	imshow(COLOR_IMAGE_WINDOW_NAME, rgbImage);
 }
 
 CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 {
 
 	// Make image dilating for stable labeling
-	dilate(src, src, Mat(), Point(-1, -1), 5);
+	dilate(src, src, Mat(), Point(-1, -1), 3);
 
 	/* Use IplImage (Labeling for Mat is not fully implemented) */
 	// Convert to IplImage
@@ -279,7 +305,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		newUserData.centroidY = it->second->centroid.y;
 		userData.push_back(newUserData);
 	}
-	cout << endl;
+
 	USHORT* headHeights = new USHORT[blobs.size()];
 	Point2i* newHighestPositions = new Point2i[blobs.size()];
 	int blobID = 0;
@@ -306,7 +332,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 			}
 		}
 		// Debug: Show the highest point of each users
-		circle(userAreaMat, Point(newHighestPositions[blobID].x, newHighestPositions[blobID].y), 5, Scalar(255, 0, 255), 3);
+		//circle(userAreaMat, Point(newHighestPositions[blobID].x, newHighestPositions[blobID].y), 5, Scalar(255, 0, 255), 3);
 		
 		blobID++;
 	}	
@@ -428,7 +454,10 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 			}
 		}
 
-		if (numIntersectionPoints > 0) {
+		if (numIntersectionPoints > 0)
+		{
+			userData[blobID].isShownCursor = true;
+
 			handPosition.x /= numIntersectionPoints;
 			handPosition.y /= numIntersectionPoints;
 			handPosition.z /= numIntersectionPoints;
@@ -446,15 +475,14 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 		}
 		else
 		{
+			userData[blobID].isShownCursor = false;
+
 			userData[blobID].hand3f.x = 0.0f;
 			userData[blobID].hand3f.y = 0.0f;
 			userData[blobID].hand3f.z = 0.0f;
 		}
 		blobID++;
 	}
-	// Debug: Show depth image
-	imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
-
 
 	// Replace preUserData by current userData
 	preUserData.clear();
@@ -465,137 +493,185 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 	}
 }
 
-void MultiCursorAppCpp::drawCursor(CvBlobs blobs)
+void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 {
 	INT blobID = 0;
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
-		Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].hand3f.x, userData[blobID].hand3f.y, userData[blobID].hand3f.z, 1);
-		Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].head3f.x, userData[blobID].head3f.y, userData[blobID].head3f.z, 1);
+		if (userData[blobID].isShownCursor)
+		{
+			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].hand3f.x, userData[blobID].hand3f.y, userData[blobID].hand3f.z, 1);
+			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].head3f.x, userData[blobID].head3f.y, userData[blobID].head3f.z, 1);
 
-		Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
-		Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
+			Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
+			Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
 
-		// Caliculate the intersection point of vector and screen
-		float xvec = handPointScreen.at<float>(0, 0) - headPointScreen.at<float>(0, 0);
-		float yvec = handPointScreen.at<float>(1, 0) - headPointScreen.at<float>(1, 0);
-		float zvec = handPointScreen.at<float>(2, 0) - headPointScreen.at<float>(2, 0);
+			// Caliculate the intersection point of vector and screen
+			float xvec = handPointScreen.at<float>(0, 0) - headPointScreen.at<float>(0, 0);
+			float yvec = handPointScreen.at<float>(1, 0) - headPointScreen.at<float>(1, 0);
+			float zvec = handPointScreen.at<float>(2, 0) - headPointScreen.at<float>(2, 0);
 
-		float val = -handPointScreen.at<float>(2, 0) / zvec;
+			float val = -handPointScreen.at<float>(2, 0) / zvec;
 
-		// Calculate cursor position in real scall
-		Point3f cursorScreen3d;
-		cursorScreen3d.x = val * xvec + headPointScreen.at<float>(0, 0);
-		cursorScreen3d.y = val * yvec + headPointScreen.at<float>(1, 0);
-		cursorScreen3d.z = 0.0f;
-		// Calculate cursor position in pixel coordinate
-		float screen3dTo2d = 246 / 0.432f;
-		Point cursorScreen2d;
-		cursorScreen2d.x = (int)(cursorScreen3d.x * screen3dTo2d);
-		cursorScreen2d.y = (int)(cursorScreen3d.y * screen3dTo2d);
+			// Calculate cursor position in real scall
+			Point3f cursorScreen3d;
+			cursorScreen3d.x = val * xvec + headPointScreen.at<float>(0, 0);
+			cursorScreen3d.y = val * yvec + headPointScreen.at<float>(1, 0);
+			cursorScreen3d.z = 0.0f;
+			// Calculate cursor position in pixel coordinate
+			float screen3dTo2d = 246 / 0.432f;
+			Point cursorScreen2d;
+			cursorScreen2d.x = (int)(cursorScreen3d.x * screen3dTo2d);
+			cursorScreen2d.y = (int)(cursorScreen3d.y * screen3dTo2d);
 
-		// Set the mouse cursor
-		MouseControl(cursorScreen2d, blobID);
+			userData[blobID].cursorPos.x = cursorScreen3d.x * screen3dTo2d;
+			userData[blobID].cursorPos.y = cursorScreen3d.y * screen3dTo2d;
+		}
 	}
 }
 
-void MultiCursorAppCpp::MouseControl(Point cursor, int id)
+void MultiCursorAppCpp::MouseControl(float x, float y)
 {
 	// スクリーン座標をmouse_event()用の座標変換
-	DWORD dwX = cursor.x * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
-	DWORD dwY = cursor.y * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
+	DWORD dwX = x * 65535 / ::GetSystemMetrics(SM_CXSCREEN);
+	DWORD dwY = y * 65535 / ::GetSystemMetrics(SM_CYSCREEN);
 
 	// Set mouse cursor position
 	::mouse_event(MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, dwX, dwY, NULL, NULL);
 }
 
 #pragma region OpenGL
-//void MultiCursorAppCpp::display(void)
-//{
-//	glClear(GL_COLOR_BUFFER_BIT);
-//	glFlush();
-//}
-//
-//void MultiCursorAppCpp::reshape(int w, int h)
-//{
-//	// Make the whole window as a viewport
-//	glViewport(0, 0, w, h);
-//	// Initialize transformation matrix
-//	glLoadIdentity();
-//}
-//
-//void MultiCursorAppCpp::idle(void)
-//{
-//	this->run();
-//}
-//
-//void MultiCursorAppCpp::keyboard(unsigned char key, int x, int y)
-//{
-//	switch (key) {
-//	case 'q':
-//	case 'Q':
-//	case '\033':	// ESC
-//		exit(0);
-//	default:
-//		break;
-//	}
-//}
-//
-////void MultiCursorAppCpp::mouse(int button, int state, int mouse_x, int mouse_y)
-////{
-////}
-//
-//void sdisplay()
-//{
-//	appSub.display();
-//}
-//
-//void sreshape(int w, int h)
-//{
-//	appSub.reshape(w, h);
-//}
-//
-//void sidle(void)
-//{
-//	appSub.idle();
-//}
-//
-//void skeyboard(unsigned char key, int x, int y)
-//{
-//	appSub.keyboard(key, x, y);
-//}
-//
-////void smouse(int button, int state, int mouse_x, int mouse_y)
-////{
-////	app.mouse(button, state, mouse_x, mouse_y);
-////}
-//
-//
-//#pragma endregion
+void MultiCursorAppCpp::display(void)
+{
+	glClear(GL_COLOR_BUFFER_BIT);
+	if (userData.size() > 0)
+	if (userData[0].isShownCursor)
+	{
+		Point2f cursorPos((userData[0].cursorPos.x - WINDOW_WIDTH/2) / WINDOW_WIDTH, -(userData[0].cursorPos.y - WINDOW_HEIGHT/2) / WINDOW_HEIGHT);
+		glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
+		glBegin(GL_QUADS);
+		float offsetX = (40 / (float)WINDOW_WIDTH);
+		float offsetY = (40 / (float)WINDOW_HEIGHT);
+		glVertex2f(cursorPos.x, cursorPos.y);
+		glVertex2f(cursorPos.x+offsetX, cursorPos.y);
+		glVertex2f(cursorPos.x+offsetX, cursorPos.y+offsetY);
+		glVertex2f(cursorPos.x, cursorPos.y+offsetY);
+		glEnd();
+	}
 
-void main(int argc, char *argv[])
+	glFlush();
+	glutSwapBuffers();
+}
+
+void MultiCursorAppCpp::reshape(int w, int h)
+{
+	// Make the whole window as a viewport
+	glViewport(0, 0, w, h);
+	// Initialize transformation matrix
+	glLoadIdentity();
+}
+
+void MultiCursorAppCpp::idle(void)
+{
+	this->runGL();
+
+	glutPostRedisplay();
+}
+
+void MultiCursorAppCpp::keyboard(unsigned char key, int x, int y)
+{
+	switch (key) {
+	case 'q':
+	case 'Q':
+	case '\033':	// ESC
+		// 終了処理
+		if (kinect != 0) {
+			kinect->NuiShutdown();
+			kinect->Release();
+		}
+		exit(0);
+		break;
+	default:
+		break;
+	}
+}
+
+//void MultiCursorAppCpp::mouse(int button, int state, int mouse_x, int mouse_y)
+//{
+//}
+
+static void sdisplay()
+{
+	appSub.display();
+}
+
+static void sreshape(int w, int h)
+{
+	appSub.reshape(w, h);
+}
+
+static void sidle(void)
+{
+	appSub.idle();
+}
+
+static void skeyboard(unsigned char key, int x, int y)
+{
+	appSub.keyboard(key, x, y);
+}
+
+//void smouse(int button, int state, int mouse_x, int mouse_y)
+//{
+//	app.mouse(button, state, mouse_x, mouse_y);
+//}
+
+
+#pragma endregion
+
+int main(int argc, char *argv[])
 {
 
+//#define CV_RUN
+#ifdef CV_RUN
+
+	/* Kinect, OpenCV */
 	MultiCursorAppCpp app;
-	//appSub = app;
-
-	// Initialize Kinect
+	/// Initialize Kinect
 	app.initKinect();
-	//appSub.initKinect();
+	app.run();
 
-	//glutInit(&argc, argv);
-	//glClearColor(1.0, 1.0, 1.0, 1.0);
-	//glutInitDisplayMode(GLUT_RGBA);
-	//glutCreateWindow("test");
+#else
+	
+	/* OpenGL */
+	MultiCursorAppCpp app;
+	appSub = app;
+	appSub.initKinect();
+
+	glutInitWindowPosition(0, 0);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+	glutCreateWindow(argv[0]);
 
 	//// Register callback functions
-	//glutReshapeFunc(sreshape);
-	//glutDisplayFunc(sdisplay);
-	//glutIdleFunc(sidle);
-	//glutKeyboardFunc(skeyboard);
+	glutReshapeFunc(sreshape);
+	glutDisplayFunc(sdisplay);
+	glutIdleFunc(sidle);
+	glutKeyboardFunc(skeyboard);
 	//glutMouseFunc(smouse);
-	
-	//glutMainLoop();
-	app.run();
-	
-	exit(0);
+
+	glClearColor(1.0, 1.0, 1.0, 1.0);
+	//GLのデバイスコンテキストハンドル取得
+    HDC glDc = wglGetCurrentDC();
+ 
+    //ウィンドウハンドル取得
+    HWND hWnd = WindowFromDC(glDc);
+	//ウィンドウの属性と位置変更
+    SetWindowLong(hWnd, GWL_STYLE, WS_POPUP);
+    SetWindowPos(hWnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
+
+	glutMainLoop();
+
+#endif	
+
+	return 0;
 }

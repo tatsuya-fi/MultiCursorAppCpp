@@ -4,7 +4,11 @@
 /// <Settings> 調整可能なパラメータ
 /// 
 
-//#define NEAR_MODE		// nearモードを使う場合はコメントを外す
+#define NEAR_MODE		// nearモードを使う場合はコメントを外す
+
+// Screen resolution
+const int WINDOW_WIDTH  = 2560;
+const int WINDOW_HEIGHT = 1024;
 
 // The resolution of the kinect depth camera
 const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
@@ -68,6 +72,7 @@ public:
 
 	void initKinect();
 	void run();
+	void runGL();
 
 	// OpenGL callback function
 	void display(void);
@@ -96,7 +101,6 @@ private:
 
 	// Data for each user
 	typedef struct {
-		bool isNewData;		// トラッキング開始フレームのみtrue
 		bool isDataFound;	// 前フレームのデータとして参照するとき対応するblobが見つかったかどうか
 
 		int headHeight;
@@ -109,6 +113,9 @@ private:
 		int centroidX;
 		int centroidY;
 
+		/* Cursor params */
+		Point2f cursorPos;
+		bool isShownCursor;
 		bool isClicking;
 	
 	} UserData;
@@ -118,7 +125,6 @@ private:
 	vector<UserData> preUserData;
 	vector<UserData>::iterator p;
 	
-
 	/* Functions */
 	void createInstance();
 	void getFrameData();
@@ -128,9 +134,9 @@ private:
 	CvBlobs labelingUserArea(Mat& mat);
 	void detectHeadPosition(CvBlobs blobs);
 	void detectHandPosition(CvBlobs blobs);
-	void drawCursor(CvBlobs blobs);
+	void setCursor(CvBlobs blobs);
 
-	void MouseControl(Point cursor, int id);
+	void MouseControl(float x, float y);
 };
 
 // GLにコールバック関数を登録する用
