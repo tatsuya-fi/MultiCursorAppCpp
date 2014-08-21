@@ -15,6 +15,13 @@ MultiCursorAppCpp::~MultiCursorAppCpp()
 		kinect->NuiShutdown();
 		kinect->Release();
 	}
+
+	SafeRelease(pDepthReader);
+	if (pSensor)
+	{
+		pSensor->Close();
+	}
+	SafeRelease(pSensor);
 }
 
 void MultiCursorAppCpp::initKinect()
@@ -62,6 +69,48 @@ void MultiCursorAppCpp::initKinect()
 	::NuiImageResolutionToSize(KINECT_RESOLUTION, width, height);
 }
 
+void MultiCursorAppCpp::initKinectV2()
+{
+	// Find Sensor
+	IKinectSensor* pSensor;
+	HRESULT hResult = S_OK;
+	hResult = GetDefaultKinectSensor(&pSensor);
+	if (FAILED(hResult))
+	{
+		cerr << "Error : GetDefaultKinectSensor" << endl;
+		exit(0);
+	}
+
+	hResult = pSensor->Open();
+	if (FAILED(hResult))
+	{
+		cerr << "Error : IKinectSensor::Open()" << endl;
+		exit(0);
+	}
+
+	// Sensor to Source 
+	IDepthFrameSource* pDepthSource;
+	hResult = pSensor->get_DepthFrameSource(&pDepthSource);
+	if (FAILED(hResult))
+	{
+	cerr << "Error : IKinectSensor::get_DepthFrameSource()" << endl;
+	exit(0);
+	}
+
+	// Source to Reader
+	hResult = pDepthSource->OpenReader(&pDepthReader);
+	if (FAILED(hResult))
+	{
+	cerr << "Error : IDepthFrameSource::OpenReader()" << endl;
+	exit(0);
+	}
+	SafeRelease(pDepthSource);
+
+	namedWindow("Depth v2");
+}
+
+
+
 void MultiCursorAppCpp::run()
 {
 	
@@ -71,30 +120,38 @@ void MultiCursorAppCpp::run()
 		getFrameData();
 
 		/* 2. Detect users' head positions */
-		CvBlobs blobs = labelingUserArea(userAreaMat);
+		/*CvBlobs blobs;
+		if (!userAreaMat.empty())
+		{
+			blobs = labelingUserArea(userAreaMat);
+		}
+		else
+		{
+			continue;
+		}*/
 
 		/* 3. Detect users' head postiions */
-		detectHeadPosition(blobs);
+		//detectHeadPosition(blobs);
 
 		/* 4. Detect users' hand positions */
-		detectHandPosition(blobs);
+		//detectHandPosition(blobs);
 
 		/* 5. Caluclate cursors position */
-		setCursor(blobs);
+		//setCursor(blobs);
 
 		/* 6. Draw cursor */
-		if (userData.size() > 0)
+		/*if (userData.size() > 0)
 		{
 			int id = 0;
 			MouseControl(userData[id].cursorPos.x, userData[id].cursorPos.y);
-		}
+		}*/
 
 		/* ex. Show the images */
-		imshow(COLOR_IMAGE_WINDOW_NAME, rgbImage);
-		imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
-
+		//imshow(COLOR_IMAGE_WINDOW_NAME, rgbImage);
+		//imshow(DEPTH_IMAGE_WINDOW_NAME, userAreaMat);
+		
 		// Key check for quit
-		int key = waitKey(10);
+		int key = waitKey(50);
 		if (key == 'q' || key == KEY_ESC) {
 			destroyAllWindows();
 			break;
@@ -150,17 +207,22 @@ void MultiCursorAppCpp::createInstance()
 void MultiCursorAppCpp::getFrameData()
 {
 	// Wait for updating frame data
-	DWORD ret = ::WaitForSingleObject(streamEvent, 10);
-	::ResetEvent(streamEvent);
+	//DWORD ret = ::WaitForSingleObject(streamEvent, 0);
+	//::ResetEvent(streamEvent);
 
-	if (ret != WAIT_TIMEOUT)
-	{
-		// Get depth image
-		getDepthImage();
+	//if (ret != WAIT_TIMEOUT)
+	//{
+	//	// Get depth image
+	//	//getDepthImage();
 
-		// Get color image
-		getRgbImage();
-	}
+	//	// Get color image
+	//	//getRgbImage();
+
+	//	
+	//}
+
+	// Get depth image from kinect v2
+	getDepthImageV2();
 }
 
 void MultiCursorAppCpp::getDepthImage()
@@ -252,9 +314,35 @@ void MultiCursorAppCpp::getRgbImage()
 	}
 }
 
+void MultiCursorAppCpp::getDepthImageV2()
+{
+	int width = 512;
+	int height = 424;
+	unsigned int bufferSize = width * height * sizeof(unsigned short); 
+	cv::Mat bufferMat(height, width, CV_16SC1);
+	cv::Mat depthMat(height, width, CV_8UC1);
+
+	
+	// Frame
+	IDepthFrame* pDepthFrame = nullptr;
+	HRESULT hResult = S_OK;
+	hResult = pDepthReader->AcquireLatestFrame(&pDepthFrame);
+	if (SUCCEEDED(hResult))
+	{
+		hResult = pDepthFrame->AccessUnderlyingBuffer(&bufferSize, reinterpret_cast<UINT16**>(&bufferMat.data));
+		if (SUCCEEDED(hResult))
+		{
+			bufferMat.convertTo(depthMat, CV_8U, -255.0f / 4500.0f, 255.0f);
+		}
+	}
+	SafeRelease(pDepthFrame);
+
+	// Show Window
+	cv::imshow("Depth v2", depthMat);
+}
+
 CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 {
-
 	// Make image dilating for stable labeling
 	dilate(src, src, Mat(), Point(-1, -1), 3);
 
@@ -686,13 +774,14 @@ static void skeyboard(unsigned char key, int x, int y)
 int main(int argc, char* argv[])
 {
 
-//#define CV_RUN		// Uncomment when you debug with using OpenCV
-#ifdef CV_RUN
+#define CV_RUN_DEBUG		// Uncomment when you debug with using OpenCV
+#ifdef CV_RUN_DEBUG
 
 	/* Kinect, OpenCV */
 	MultiCursorAppCpp app;
 	/// Initialize Kinect
-	app.initKinect();
+	//app.initKinect();
+	app.initKinectV2();
 	app.run();
 
 #else

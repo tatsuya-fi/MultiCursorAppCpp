@@ -73,6 +73,8 @@ public:
 	void initKinect();
 	void run();
 
+	void initKinectV2();
+
 	void initGL(int argc, char* argv[]);
 	void runGL();
 
@@ -132,13 +134,26 @@ private:
 	void getFrameData();
 	void getDepthImage();
 	void getRgbImage();
-	
+
+	void getDepthImageV2();
+
 	CvBlobs labelingUserArea(Mat& mat);
 	void detectHeadPosition(CvBlobs blobs);
 	void detectHandPosition(CvBlobs blobs);
 	void setCursor(CvBlobs blobs);
 
 	void MouseControl(float x, float y);
+
+	// Kinect_v2
+	// Sensor
+	IKinectSensor* pSensor;
+	//// Source
+	//IDepthFrameSource* pDepthSource;
+	// Reader: Depth dataを保管するストリーム
+	IDepthFrameReader* pDepthReader;
+	//// Frame
+	//IDepthFrame* pDepthFrame;
+
 };
 
 // GLにコールバック関数を登録する用

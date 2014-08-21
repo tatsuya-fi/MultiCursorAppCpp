@@ -12,11 +12,18 @@
 // </TODO>
 #define OPENCV
 
-/* KinectSDK */
+/* Kinect_V1 SDK */
 /// <TODO>
 /// 必要に応じて追加のインクルードディレクトリに"$(KINECTSDK10_DIR)\inc"を追加
 /// </TODO>
-#define KINECTSDK
+#define KINECT_V1
+
+/* Kinect_V2 SDK */
+/// <TODO>
+/// 必要に応じて追加のインクルードディレクトリに"$(KINECTSDK20_DIR)\inc"を追加
+/// </TODO>
+#define KINECT_V2
+
 
 /* ARToolKit*/
 // <TODO>
@@ -105,7 +112,7 @@
 #endif
 
 
-#ifdef KINECTSDK
+#ifdef KINECT_V1
 
 	// NuiApi.hの前にWindows.hをインクルードする
 	#include <Windows.h>
@@ -122,6 +129,35 @@
 	#ifdef max
 	#undef max
 	#endif
+
+#endif
+
+#ifdef KINECT_V2
+
+	// Windows Header Files
+	#include <Windows.h>
+	#include <ShlObj.h>
+
+	// Direct2D Header Files
+	#include <d2d1.h>
+
+	// Kinect Header File
+	#include <Kinect.h>
+
+	#pragma comment(lib, "C:\\Program Files\\Microsoft SDKs\\Kinect\\v2.0-DevPreview1406\\lib\\x86\\Kinect20.lib")
+
+	#pragma comment(lib, "d2d1.lib")
+
+	// Safe release for interfaces
+	template<class Interface>
+	inline void SafeRelease(Interface *& pInterfaceToRelease)
+	{
+		if (pInterfaceToRelease != NULL)
+		{
+			pInterfaceToRelease->Release();
+			pInterfaceToRelease = NULL;
+		}
+	}
 
 #endif
 
