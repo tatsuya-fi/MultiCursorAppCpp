@@ -150,14 +150,17 @@ void MultiCursorAppCpp::createInstance()
 void MultiCursorAppCpp::getFrameData()
 {
 	// Wait for updating frame data
-	//DWORD ret = ::WaitForSingleObject(streamEvent, INFINITE);
-	//::ResetEvent(streamEvent);
+	DWORD ret = ::WaitForSingleObject(streamEvent, 10);
+	::ResetEvent(streamEvent);
 
-	// Get depth image
-	getDepthImage();
+	if (ret != WAIT_TIMEOUT)
+	{
+		// Get depth image
+		getDepthImage();
 
-	// Get color image
-	getRgbImage();
+		// Get color image
+		getRgbImage();
+	}
 }
 
 void MultiCursorAppCpp::getDepthImage()
@@ -187,11 +190,13 @@ void MultiCursorAppCpp::getDepthImage()
 
 		int index = ((depthY * width) + depthX) * 3;
 		UCHAR* dataDepth = &userAreaMat.data[index];
-		USHORT heightFromFloor;
-		(0 < distance && distance < KINECT_HEIGHT)? heightFromFloor = KINECT_HEIGHT - distance: heightFromFloor = 0;
 
 		// 高さ情報を記録 / Set the height from floor
+		USHORT heightFromFloor;
+		(0 < distance && distance < KINECT_HEIGHT)? heightFromFloor = KINECT_HEIGHT - distance: heightFromFloor = 0;
 		heightMatrix.at<USHORT>(depthY, depthX) = heightFromFloor;
+		/*UCHAR* heightData = &heightMatrix.data[depthY * heightMatrix.step + depthX * heightMatrix.elemSize()];
+		*heightData = heightFromFloor;*/ // dataでアクセスする方法が間違っており使用できない。正しい記述法を探し中
 
 		// ユーザ領域を記憶 / Define user area
 		if (USER_HEIGHT_THRESHOLD <= heightFromFloor && heightFromFloor <= HEAD_HEIGHT_MAX) {
@@ -210,6 +215,10 @@ void MultiCursorAppCpp::getDepthImage()
 		point3fMatrix.at<Vec3f>(depthY, depthX)[0] = realPoint.x;
 		point3fMatrix.at<Vec3f>(depthY, depthX)[1] = realPoint.y;
 		point3fMatrix.at<Vec3f>(depthY, depthX)[2] = realPoint.z;
+		/*UCHAR* point3fData = &point3fMatrix.data[depthY * point3fMatrix.step + depthX * point3fMatrix.elemSize()];
+		point3fData[0] = realPoint.x;
+		point3fData[1] = realPoint.y;
+		point3fData[2] = realPoint.z;*/
 	}
 
 	// Release each data
@@ -319,6 +328,8 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		{
 			for (int x = it->second->minx; x <= it->second->maxx; x++)
 			{
+				UCHAR* heightData = &heightMatrix.data[y * heightMatrix.step + x * heightMatrix.elemSize()];
+
 				if (0 <= blobID && blobID < blobs.size())
 				{
 					if (headHeights[blobID] < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX)
@@ -327,7 +338,12 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 						newHighestPositions[blobID].x = x;
 						newHighestPositions[blobID].y = y;
 					}
-
+					/*if (headHeights[blobID] < heightData[0] && heightData[0] < HEAD_HEIGHT_MAX)
+					{
+						headHeights[blobID] = heightData[0];
+						newHighestPositions[blobID].x = x;
+						newHighestPositions[blobID].y = y;
+					}*/
 				}
 			}
 		}
@@ -379,12 +395,19 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 				{
 					if (0 < x && x < width)
 					{
+						UCHAR* heightData = &heightMatrix.data[y * heightMatrix.step + x * heightMatrix.elemSize()];
 						if ((userData[blobID].headHeight - HEAD_LENGTH) < heightMatrix.at<USHORT>(y, x) && heightMatrix.at<USHORT>(y, x) < HEAD_HEIGHT_MAX) 
 						{
 							newHeadPositions[blobID].x += x;
 							newHeadPositions[blobID].y += y;
 							numHeadPoints[blobID]++;
 						}
+						/*if ((userData[blobID].headHeight - HEAD_LENGTH) < heightData[0] && heightData[0] < HEAD_HEIGHT_MAX) 
+						{
+							newHeadPositions[blobID].x += x;
+							newHeadPositions[blobID].y += y;
+							numHeadPoints[blobID]++;
+						}*/
 					}
 				}
 			}
@@ -412,6 +435,10 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		userData[i].head3f.x = point3fMatrix.at<Vec3f>(userData[i].head2i.y, userData[i].head2i.x)[0];
 		userData[i].head3f.y = point3fMatrix.at<Vec3f>(userData[i].head2i.y, userData[i].head2i.x)[1];
 		userData[i].head3f.z = point3fMatrix.at<Vec3f>(userData[i].head2i.y, userData[i].head2i.x)[2];
+		/*UCHAR* point3fData = &point3fMatrix.data[userData[i].head2i.y * point3fMatrix.step + userData[i].head2i.x * point3fMatrix.elemSize()];
+		userData[i].head3f.x = point3fData[0];
+		userData[i].head3f.y = point3fData[1];
+		userData[i].head3f.z = point3fData[2];*/
 
 		// Debug: Show the head point
 		circle(userAreaMat, Point(userData[i].head2i.x, userData[i].head2i.y), 7, Scalar(255, 0, 0), 3);
@@ -540,6 +567,38 @@ void MultiCursorAppCpp::MouseControl(float x, float y)
 }
 
 #pragma region OpenGL
+
+void MultiCursorAppCpp::initGL(int argc, char* argv[])
+{
+	glutInitWindowPosition(0, 0);
+	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+	glutCreateWindow("MultiCursorAppCpp");
+
+	//// Register callback functions
+	//glutReshapeFunc(sreshape);
+	glutDisplayFunc(sdisplay);
+	glutIdleFunc(sidle);
+	glutKeyboardFunc(skeyboard);
+	//glutMouseFunc(smouse);
+
+	glClearColor(1.0, 1.0, 1.0, 1.0);
+
+	/* Camera setup */
+	glViewport(0, 0, width, height);
+	glLoadIdentity();
+
+	/* GLのウィンドウをフルスクリーンに */
+	//GLのデバイスコンテキストハンドル取得
+	HDC glDc = wglGetCurrentDC();
+	//ウィンドウハンドル取得
+	HWND hWnd = WindowFromDC(glDc);
+	//ウィンドウの属性と位置変更
+	SetWindowLong(hWnd, GWL_STYLE, WS_POPUP);
+	SetWindowPos(hWnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
+}
+
 void MultiCursorAppCpp::display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -560,15 +619,16 @@ void MultiCursorAppCpp::display(void)
 
 	glFlush();
 	glutSwapBuffers();
+
 }
 
-void MultiCursorAppCpp::reshape(int w, int h)
-{
-	// Make the whole window as a viewport
-	glViewport(0, 0, w, h);
-	// Initialize transformation matrix
-	glLoadIdentity();
-}
+//void MultiCursorAppCpp::reshape(int w, int h)
+//{
+//	// Make the whole window as a viewport
+//	glViewport(0, 0, w, h);
+//	// Initialize transformation matrix
+//	glLoadIdentity();
+//}
 
 void MultiCursorAppCpp::idle(void)
 {
@@ -583,11 +643,6 @@ void MultiCursorAppCpp::keyboard(unsigned char key, int x, int y)
 	case 'q':
 	case 'Q':
 	case '\033':	// ESC
-		// 終了処理
-		if (kinect != 0) {
-			kinect->NuiShutdown();
-			kinect->Release();
-		}
 		exit(0);
 		break;
 	default:
@@ -599,15 +654,16 @@ void MultiCursorAppCpp::keyboard(unsigned char key, int x, int y)
 //{
 //}
 
+
 static void sdisplay()
 {
 	appSub.display();
 }
 
-static void sreshape(int w, int h)
-{
-	appSub.reshape(w, h);
-}
+//static void sreshape(int w, int h)
+//{
+//	appSub.reshape(w, h);
+//}
 
 static void sidle(void)
 {
@@ -627,10 +683,10 @@ static void skeyboard(unsigned char key, int x, int y)
 
 #pragma endregion
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
 
-//#define CV_RUN
+//#define CV_RUN		// Uncomment when you debug with using OpenCV
 #ifdef CV_RUN
 
 	/* Kinect, OpenCV */
@@ -646,29 +702,7 @@ int main(int argc, char *argv[])
 	appSub = app;
 	appSub.initKinect();
 
-	glutInitWindowPosition(0, 0);
-	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-	glutCreateWindow(argv[0]);
-
-	//// Register callback functions
-	glutReshapeFunc(sreshape);
-	glutDisplayFunc(sdisplay);
-	glutIdleFunc(sidle);
-	glutKeyboardFunc(skeyboard);
-	//glutMouseFunc(smouse);
-
-	glClearColor(1.0, 1.0, 1.0, 1.0);
-	//GLのデバイスコンテキストハンドル取得
-    HDC glDc = wglGetCurrentDC();
- 
-    //ウィンドウハンドル取得
-    HWND hWnd = WindowFromDC(glDc);
-	//ウィンドウの属性と位置変更
-    SetWindowLong(hWnd, GWL_STYLE, WS_POPUP);
-    SetWindowPos(hWnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
-
+	appSub.initGL(argc, argv);
 	glutMainLoop();
 
 #endif	

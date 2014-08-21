@@ -28,7 +28,7 @@ const int SHOULDER_LENGTH = 100;
 const int HEAD_LENGTH = 220;
 
 // 手を検出するための, 頭を中心とした球の半径 [mm]
-const float SENCIG_CIRCLE_RADIUS = 0.6f;
+const float SENCIG_CIRCLE_RADIUS = 0.55f;
 
 // 書く座標変換行列
 const Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
@@ -72,6 +72,8 @@ public:
 
 	void initKinect();
 	void run();
+
+	void initGL(int argc, char* argv[]);
 	void runGL();
 
 	// OpenGL callback function
