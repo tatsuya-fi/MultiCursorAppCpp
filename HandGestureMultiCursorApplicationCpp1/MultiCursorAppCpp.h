@@ -4,8 +4,7 @@
 /// <Settings> 調整可能なパラメータ
 /// 
 
-//#define USE_KINECT_V1		// Kinect v1を用いる場合はコメントを外す
-#define NEAR_MODE		// nearモードを使う場合はコメントを外す(Kinect v1のみ)
+#define NEAR_MODE		// nearモードを使う場合はコメントを外す
 
 // Screen resolution
 const int WINDOW_WIDTH  = 2560;
@@ -15,23 +14,16 @@ const int WINDOW_HEIGHT = 1024;
 const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
 
 // The height of Kinect which is set on the celling
-//const int KINECT_HEIGHT = 2700;		// ミーティングルーム用
-const int KINECT_HEIGHT = 1800;		// 作業場用
-
+const int KINECT_HEIGHT = 2700;
 // The threshold which detect users in the first step (The distance from the floor)
 // 最初にユーザを検出する時のしきい値(地面からの高さ)[mm]
-//const int USER_HEIGHT_THRESHOLD = 1000;
-const int USER_HEIGHT_THRESHOLD = 800;
-
+const int USER_HEIGHT_THRESHOLD = 1000;
 // Maximum height of the users
 const int HEAD_HEIGHT_MAX = 2400;
-
 // The height of the desk (This separate objects and users)
 const int DESK_HEIGHT = 700;
-
 // The length of the user's shoulder [mm]
 const int SHOULDER_LENGTH = 100;
-
 // The lenth of the user's head [mm]
 const int HEAD_LENGTH = 220;
 
@@ -78,9 +70,9 @@ public:
 	MultiCursorAppCpp();
 	~MultiCursorAppCpp();
 
+	void initKinect();
 	void run();
 
-	void initKinectV1();
 	void initKinectV2();
 
 	void initGL(int argc, char* argv[]);
@@ -93,20 +85,23 @@ public:
 	void keyboard(unsigned char key, int x, int y);
 	//void mouse(int button, int state, int mouse_x, int mouse_y);
 
-	void showHelp();
-
 private:
+	// Handles
+	INuiSensor* kinect;
+	HANDLE imageStreamHandle;
+	HANDLE depthStreamHandle;
+	HANDLE streamEvent;
+
 	// Window size (depth and color)
-	int CAMERA_WIDTH;
-	int CAMERA_HEIGHT;
+	DWORD width;
+	DWORD height;
 
 	/* Each pixel or 3D point data */
 	Mat	userAreaMat;	// Areas of each users
 	Mat point3fMatrix;	// 3D points of the observed points
 	Mat heightMatrix;	// Heights of each pixel from the floor
 
-	Mat depthImage;		// Image from kinect depth camera
-	Mat rgbImage;		// Image from kinect color camera
+	Mat rgbImage;		// A image from kinect color camera
 
 	// Data for each user
 	typedef struct {
@@ -126,56 +121,43 @@ private:
 		Point2f cursorPos;
 		bool isShownCursor;
 		bool isClicking;
-
+	
 	} UserData;
 
 	//UserData userData;
 	vector<UserData> userData;
 	vector<UserData> preUserData;
 	vector<UserData>::iterator p;
-
-	/* Handles for kinect v1 */
-	INuiSensor* kinect;
-	HANDLE imageStreamHandle;
-	HANDLE depthStreamHandle;
-
-	HANDLE streamEvent;
-	/* Functions for kinect v1 */
+	
+	/* Functions */
 	void createInstance();
-	bool getDepthImageV1();
-	void getRgbImageV1();
+	void getFrameData();
+	void getDepthImage();
+	void getRgbImage();
 
-	/* Functions for kinect v2*/
-	bool getDepthImageV2();
-	void getRgbImageV2();
+	void getDepthImageV2();
 
-	/* Other Functions */
-	bool getFrameData();
 	CvBlobs labelingUserArea(Mat& mat);
 	void detectHeadPosition(CvBlobs blobs);
 	void detectHandPosition(CvBlobs blobs);
 	void setCursor(CvBlobs blobs);
 
-	/* For showing results */
-	bool isShowDebugWindows = true;
-	void showDebugWindows();
-
-
 	void MouseControl(float x, float y);
+
+	// Kinect_v2
+	// Sensor
+	IKinectSensor* pSensor;
+	//// Source
+	//IDepthFrameSource* pDepthSource;
+	// Reader: Depth dataを保管するストリーム
+	IDepthFrameReader* pDepthReader;
+	//// Frame
+	//IDepthFrame* pDepthFrame;
+
 };
 
-// クラス宣言
-extern MultiCursorAppCpp app;
-
-/* Kinect_v2 */
-// Sensor
-static IKinectSensor* pSensor;
-// Reader: Depth dataを保管するストリーム
-static IDepthFrameReader* pDepthReader;
-// CoordinateMapper
-static ICoordinateMapper* pCoordinateMapper;
-// Reader: Color dataを保管するストリーム
-static IColorFrameReader* pColorReader;
+// GLにコールバック関数を登録する用
+static MultiCursorAppCpp appSub;
 
 void sdisplay();
 void sreshape(int w, int h);
