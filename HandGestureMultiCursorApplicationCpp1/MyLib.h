@@ -144,7 +144,7 @@
 	// Kinect Header File
 	#include <Kinect.h>
 
-	#pragma comment(lib, "C:\\Program Files\\Microsoft SDKs\\Kinect\\v2.0-DevPreview1406\\lib\\x86\\Kinect20.lib")
+	#pragma comment(lib, "C:\\Program Files\\Microsoft SDKs\\Kinect\\MainV2\\Lib\\x86\\Kinect20.lib")
 
 	#pragma comment(lib, "d2d1.lib")
 
