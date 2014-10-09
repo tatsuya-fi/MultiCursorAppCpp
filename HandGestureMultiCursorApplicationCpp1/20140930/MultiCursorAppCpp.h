@@ -7,11 +7,6 @@
 //#define USE_KINECT_V1		// Kinect v1を用いる場合はコメントを外す
 #define NEAR_MODE		// nearモードを使う場合はコメントを外す(Kinect v1のみ)
 
-#define TRACK_GESTURE_BY_AREA	// これをdefineした時は手領域の正規化した面積に応じてジェスチャ判定する
-
-// #define USE_COLOR_VK2
-
-
 // Screen resolution
 const int WINDOW_WIDTH  = 2560;
 const int WINDOW_HEIGHT = 1024;
@@ -20,13 +15,13 @@ const int WINDOW_HEIGHT = 1024;
 const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
 
 // The height of Kinect which is set on the celling
-const int KINECT_HEIGHT = 2700;		// ミーティングルーム用
-//const int KINECT_HEIGHT = 1800;		// 作業場用
+//const int KINECT_HEIGHT = 2700;		// ミーティングルーム用
+const int KINECT_HEIGHT = 1800;		// 作業場用
 
 // The threshold which detect users in the first step (The distance from the floor)
 // 最初にユーザを検出する時のしきい値(地面からの高さ)[mm]
-const int USER_HEIGHT_THRESHOLD = 900;	// ミーティングルーム用
-//const int USER_HEIGHT_THRESHOLD = 800;	// 作業場用
+//const int USER_HEIGHT_THRESHOLD = 1000;
+const int USER_HEIGHT_THRESHOLD = 800;
 
 // Maximum height of the users
 const int HEAD_HEIGHT_MAX = 2400;
@@ -38,10 +33,10 @@ const int DESK_HEIGHT = 700;
 const int SHOULDER_LENGTH = 100;
 
 // The lenth of the user's head [mm]
-const int HEAD_LENGTH = 150;
+const int HEAD_LENGTH = 220;
 
 // 手を検出するための, 頭を中心とした球の半径 [mm]
-const float SENCIG_CIRCLE_RADIUS = 0.5f;
+const float SENCIG_CIRCLE_RADIUS = 0.55f;
 
 // 書く座標変換行列
 const Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
@@ -101,7 +96,7 @@ public:
 	void showHelp();
 
 private:
-	// Window size (depth)
+	// Window size (depth and color)
 	int CAMERA_WIDTH;
 	int CAMERA_HEIGHT;
 
@@ -113,40 +108,24 @@ private:
 	Mat depthImage;		// Image from kinect depth camera
 	Mat rgbImage;		// Image from kinect color camera
 
-	// 頭に関する情報
-	typedef struct {
-		Point2i depthPoint;
-		Point3f cameraPoint;
-
-		int height;
-	} HeadInfo;
-
-	// 手に関する情報
-	typedef struct {
-		Point3f cameraPoint;
-		float area;
-	} HandInfo;
-
-	// カーソルに関する情報
-	typedef struct {
-		Point2f position;
-		bool isShownCursor;
-		bool isClicking;
-	} CursorInfo;
-
 	// Data for each user
 	typedef struct {
-		
 		bool isDataFound;	// 前フレームのデータとして参照するとき対応するblobが見つかったかどうか
 
-		HeadInfo headInfo;
+		int headHeight;
 
-		HandInfo handInfo;
+		Point2i head2i;
+		Point3f head3f;
 
-		// 重心
-		Point2i centroid;
+		Point3f hand3f;
 
-		CursorInfo cursorInfo;
+		int centroidX;
+		int centroidY;
+
+		/* Cursor params */
+		Point2f cursorPos;
+		bool isShownCursor;
+		bool isClicking;
 
 	} UserData;
 
@@ -176,7 +155,6 @@ private:
 	void detectHeadPosition(CvBlobs blobs);
 	void detectHandPosition(CvBlobs blobs);
 	void setCursor(CvBlobs blobs);
-	void detectHandGesture(CvBlobs blobs);
 
 	/* For showing results */
 	bool isShowDebugWindows = true;
@@ -184,7 +162,6 @@ private:
 
 
 	void MouseControl(float x, float y);
-
 };
 
 // クラス宣言
@@ -197,11 +174,8 @@ static IKinectSensor* pSensor;
 static IDepthFrameReader* pDepthReader;
 // CoordinateMapper
 static ICoordinateMapper* pCoordinateMapper;
-
-#ifdef USE_COLOR_V2
 // Reader: Color dataを保管するストリーム
 static IColorFrameReader* pColorReader;
-#endif
 
 void sdisplay();
 void sreshape(int w, int h);
