@@ -464,6 +464,8 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 #ifdef USE_KINECT_V1
 	// Make image dilating for stable labeling
 	dilate(src, src, Mat(), Point(-1, -1), 3);
+#else
+	dilate(src, src, Mat(), Point(-1, -1), 1);
 #endif
 
 	/* Use IplImage (Labeling for Mat is not fully implemented) */
@@ -480,19 +482,18 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 	CvBlobs blobs;
 	UINT result = cvLabel(srcIplBinary, labelImg, blobs);
 	
-
 	// Filter noise / ノイズ点の消去
 	cvFilterByArea(blobs, 1000, 1000000);
 
 	// 面積が小さすぎるものは消去
-	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ) {
-		if (it->second->area / point3fMatrix.ptr<float>(it->second->centroid.y, it->second->centroid.x)[2] < 1000){
-			it = blobs.erase(it);
-		}
-		else {
-			++it;
-		}
-	}
+	//for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ) {
+	//	if (it->second->area / point3fMatrix.ptr<float>(it->second->centroid.y, it->second->centroid.x)[2] < 1000){
+	//		it = blobs.erase(it);
+	//	}
+	//	else {
+	//		++it;
+	//	}
+	//}
 
 	// Render blobs
 	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
@@ -562,7 +563,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 			}
 		}
 		// Debug: Show the highest point of each users
-		circle(userAreaMat, Point(newHighestPositions[blobID].x, newHighestPositions[blobID].y), 5, Scalar(255, 0, 255), 3);
+		//circle(userAreaMat, Point(newHighestPositions[blobID].x, newHighestPositions[blobID].y), 5, Scalar(255, 0, 255), 3);
 		
 		blobID++;
 	}	
@@ -586,7 +587,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 				pow(userData[blobID].headInfo.depthPoint.x - preUserData[blobID].headInfo.depthPoint.x, 2)
 				+ pow(userData[blobID].headInfo.depthPoint.y - preUserData[blobID].headInfo.depthPoint.y, 2)
 				);
-			cout << distance << endl;
+			//cout << distance << endl;
 			// If the point is far from predata, just use pre-data	/ もし前回のフレームより大きく頭の位置がずれていたら前回の値を使う
 			if (distance > 50.0f)
 			{
@@ -656,7 +657,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 
 void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 {
-	FLOAT offset = 0.001f;
+	FLOAT offset = 0.01f;
 	INT blobID = 0;
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
 		int numIntersectionPoints = 0;
@@ -674,7 +675,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 				float length = sqrt(
 					pow(center3f.x - point3fMatrix.ptr<float>(y, x)[0], 2)
 					+ pow(center3f.y - point3fMatrix.ptr<float>(y, x)[1], 2)
-					+ pow(center3f.z - point3fMatrix.ptr<float>(y, x)[2], 2)
+					//+ pow(center3f.z - point3fMatrix.ptr<float>(y, x)[2], 2)
 					);
 				// Define the intersection point of the sphere which its center is head and the hand as the hand position 
 				if (*heightMatrix.ptr<USHORT>(y, x) > userData[blobID].headInfo.height - HEAD_LENGTH - SHOULDER_LENGTH	// 肩より高い点か
@@ -787,11 +788,13 @@ void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
 		if (userData[blobID].cursorInfo.isShownCursor)
 		{
-			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x, userData[blobID].handInfo.cameraPoint.y, userData[blobID].handInfo.cameraPoint.z, 1);
-			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x, userData[blobID].headInfo.cameraPoint.y, userData[blobID].headInfo.cameraPoint.z, 1);
+			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x*1000, userData[blobID].handInfo.cameraPoint.y*1000, userData[blobID].handInfo.cameraPoint.z*1000, 1);
+			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x*1000, userData[blobID].headInfo.cameraPoint.y*1000, userData[blobID].headInfo.cameraPoint.z*1000, 1);
 
-			Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
-			Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
+			//Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
+			//Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
+			Mat handPointScreen = TMarker2Display * TKinect2Marker * handPoint;
+			Mat headPointScreen = TMarker2Display * TKinect2Marker * headPoint;
 
 			// Caliculate the intersection point of vector and screen
 			float xvec = *handPointScreen.ptr<float>(0, 0) - *headPointScreen.ptr<float>(0, 0);
@@ -805,14 +808,10 @@ void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 			cursorScreen3d.x = val * xvec + *headPointScreen.ptr<float>(0, 0);
 			cursorScreen3d.y = val * yvec + *headPointScreen.ptr<float>(1, 0);
 			cursorScreen3d.z = 0.0f;
-			// Calculate cursor position in pixel coordinate
-			float screen3dTo2d = 246 / 0.432f;
-			Point cursorScreen2d;
-			cursorScreen2d.x = (int)(cursorScreen3d.x * screen3dTo2d);
-			cursorScreen2d.y = (int)(cursorScreen3d.y * screen3dTo2d);
 
-			userData[blobID].cursorInfo.position.x = cursorScreen3d.x * screen3dTo2d;
-			userData[blobID].cursorInfo.position.y = cursorScreen3d.y * screen3dTo2d;
+			// Calculate cursor position in pixel coordinate
+			userData[blobID].cursorInfo.position.x =  (*TDisplay2Pixel.ptr<float>(0, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(0, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(0, 2));
+			userData[blobID].cursorInfo.position.y =  (*TDisplay2Pixel.ptr<float>(1, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(1, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(1, 2));
 		}
 		++blobID;
 	}
@@ -870,11 +869,12 @@ void MultiCursorAppCpp::display(void)
 		{
 			if (userData[i].cursorInfo.isShownCursor)
 			{
-				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH, -(userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT);
+				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH, (userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT);
 				glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				glBegin(GL_QUADS);
-				float offsetX = (40 / (float)WINDOW_WIDTH);
-				float offsetY = (40 / (float)WINDOW_HEIGHT);
+				float offset = 40 * 5;
+				float offsetX = (offset / (float)WINDOW_WIDTH);
+				float offsetY = (offset / (float)WINDOW_HEIGHT);
 				glVertex2f(cursorPos.x, cursorPos.y);
 				glVertex2f(cursorPos.x + offsetX, cursorPos.y);
 				glVertex2f(cursorPos.x + offsetX, cursorPos.y + offsetY);
@@ -930,6 +930,26 @@ static void skeyboard(unsigned char key, int x, int y)
 
 #pragma endregion
 
+void MultiCursorAppCpp::loadCalibData()
+{
+	FileStorage cvfsTk2m(KINECT_TRANS_FILENAME, CV_STORAGE_READ);
+	FileNode nodeTk2m(cvfsTk2m.fs, NULL);
+	FileNode fnTk2m = nodeTk2m[string("T_K2M")];
+	read(fnTk2m[0], TKinect2Marker);
+	//cout << TKinect2Marker << endl;
+
+	FileStorage cvfsTm2d(MARKER_TRANS_FILENAME, CV_STORAGE_READ);
+	FileNode nodeTm2d(cvfsTm2d.fs, NULL);
+	FileNode fnTm2d = nodeTm2d[string("T_M2D")];
+	read(fnTm2d[0], TMarker2Display);
+	//cout << TMarker2Display << endl;
+
+	FileStorage cvfsTd2p(DISP_TRANS_FILENAME, CV_STORAGE_READ);
+	FileNode nodeTd2p(cvfsTd2p.fs, NULL);
+	FileNode fnTd2p = nodeTd2p[string("disp1")];
+	read(fnTd2p[0], TDisplay2Pixel);
+	//cout << TDisplay2Pixel << endl;
+}
 
 void MultiCursorAppCpp::showHelp()
 {
@@ -951,6 +971,7 @@ int main(int argc, char* argv[])
 {
 	app.showHelp();
 	
+	app.loadCalibData();
 	/* OpenGL */
 	app.initGL(argc, argv);
 #ifdef USE_KINECT_V1

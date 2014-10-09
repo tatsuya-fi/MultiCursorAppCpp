@@ -1,8 +1,8 @@
 #pragma once
 
-///
+///////////////////////////////////////////////////////////////////
 /// <Settings> 調整可能なパラメータ
-/// 
+/////////////////////////////////////////////////////////////////// 
 
 //#define USE_KINECT_V1		// Kinect v1を用いる場合はコメントを外す
 #define NEAR_MODE		// nearモードを使う場合はコメントを外す(Kinect v1のみ)
@@ -13,8 +13,11 @@
 
 
 // Screen resolution
-const int WINDOW_WIDTH  = 2560;
+//const int WINDOW_WIDTH  = 2560;
+//const int WINDOW_HEIGHT = 1024;
+const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 1024;
+
 
 // The resolution of the kinect depth camera
 const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
@@ -32,32 +35,36 @@ const int USER_HEIGHT_THRESHOLD = 900;	// ミーティングルーム用
 const int HEAD_HEIGHT_MAX = 2400;
 
 // The height of the desk (This separate objects and users)
-const int DESK_HEIGHT = 700;
+const int DESK_HEIGHT = 600;
 
 // The length of the user's shoulder [mm]
-const int SHOULDER_LENGTH = 100;
+const int SHOULDER_LENGTH = 300;
 
 // The lenth of the user's head [mm]
 const int HEAD_LENGTH = 150;
 
 // 手を検出するための, 頭を中心とした球の半径 [mm]
-const float SENCIG_CIRCLE_RADIUS = 0.5f;
+const float SENCIG_CIRCLE_RADIUS = 0.45f;
 
-// 書く座標変換行列
-const Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
-	0, 1, 0, 3.4,
-	0, 0, 1, -0.30,
-	1, 0, 0, -2.4,
-	0, 0, 0, 1);
-const Mat T_WorldToScreen = (cv::Mat_<float>(4, 4) << 
-	1, 0, 0, 0,
-	0, 1, 0, 0,
-	0, 0, 1, 0,
-	0, 0, 0, 1);
+// 各座標変換行列
+const static char* KINECT_TRANS_FILENAME = "calibData/T_Kinect2Marker.xml";
+const static char* MARKER_TRANS_FILENAME = "calibData/T_Marker2Display.xml";
+const static char* DISP_TRANS_FILENAME   = "calibData/T_Display2Pixel.xml";
 
-///
+//const static Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
+//	0, 1, 0, 3.4,
+//	0, 0, 1, -0.30,
+//	1, 0, 0, -2.4,
+//	0, 0, 0, 1);
+//const static Mat T_WorldToScreen = (cv::Mat_<float>(4, 4) << 
+//	1, 0, 0, 0,
+//	0, 1, 0, 0,
+//	0, 0, 1, 0,
+//	0, 0, 0, 1);
+
+///////////////////////////////////////////////////////////////////
 /// </Settings>
-///
+///////////////////////////////////////////////////////////////////
 
 #define COLOR_IMAGE_WINDOW_NAME "RBG Image"
 #define DEPTH_IMAGE_WINDOW_NAME "Depth Image"
@@ -83,13 +90,18 @@ public:
 	MultiCursorAppCpp();
 	~MultiCursorAppCpp();
 
+	// メインループ関数
 	void run();
 
+	// 各Kinect初期化関数
 	void initKinectV1();
 	void initKinectV2();
 
+	// 座標変換行列の読み込み
+	void loadCalibData();
+
+	// GL初期化
 	void initGL(int argc, char* argv[]);
-	void runGL();
 
 	// OpenGL callback function
 	void display(void);
@@ -105,13 +117,19 @@ private:
 	int CAMERA_WIDTH;
 	int CAMERA_HEIGHT;
 
-	/* Each pixel or 3D point data */
+	// Each pixel or 3D point data
 	Mat	userAreaMat;	// Areas of each users
 	Mat point3fMatrix;	// 3D points of the observed points
 	Mat heightMatrix;	// Heights of each pixel from the floor
 
 	Mat depthImage;		// Image from kinect depth camera
 	Mat rgbImage;		// Image from kinect color camera
+
+	// 座標変換行列
+	Mat TKinect2Marker;
+	Mat TMarker2Display;
+	Mat TDisplay2Pixel;
+
 
 	// 頭に関する情報
 	typedef struct {
