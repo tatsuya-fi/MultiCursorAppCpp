@@ -16,15 +16,15 @@ MultiCursorAppCpp::~MultiCursorAppCpp()
 		//kinect->NuiShutdown();
 		kinect->Release();
 	}
-#else
-	SafeRelease(pDepthReader);
-	SafeRelease(pCoordinateMapper);
-
-	if (pSensor)
-	{
-		pSensor->Close();
-	}
-	SafeRelease(pSensor);
+//#else
+//	SafeRelease(pDepthReader);
+//	SafeRelease(pCoordinateMapper);
+//
+//	if (pSensor)
+//	{
+//		pSensor->Close();
+//	}
+//	SafeRelease(pSensor);
 #endif
 
 	// CVのウィンドウ破棄（念のため)
@@ -33,6 +33,7 @@ MultiCursorAppCpp::~MultiCursorAppCpp()
 
 
 #pragma region KINECT V1
+#ifdef USE_KINECT_V1
 
 void MultiCursorAppCpp::createInstance()
 {
@@ -190,166 +191,202 @@ void MultiCursorAppCpp::getRgbImageV1()
 	}
 }
 
+#endif
 #pragma endregion
 
 
 #pragma region KINECT V2
-void MultiCursorAppCpp::initKinectV2()
-{
-	// Find Sensor
-	IKinectSensor* pSensor;
-	HRESULT hResult = S_OK;
-	hResult = GetDefaultKinectSensor(&pSensor);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : GetDefaultKinectSensor()" << endl;
-		exit(0);
-	}
-
-	hResult = pSensor->get_CoordinateMapper(&pCoordinateMapper);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IKinectSensor::get_CoordinateMapper()" << endl;
-		exit(0);
-	}
-
-	// Open stream of the sensor
-	hResult = pSensor->Open();
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IKinectSensor::Open()" << endl;
-		exit(0);
-	}
-
-	/* Depth */
-	// Sensor to Source 
-	IDepthFrameSource* pDepthSource;
-	hResult = pSensor->get_DepthFrameSource(&pDepthSource);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IKinectSensor::get_DepthFrameSource()" << endl;
-		exit(0);
-	}
-
-	// Get depth image size
-	IFrameDescription* depthFrameDescription;
-	hResult = pDepthSource->get_FrameDescription(&depthFrameDescription);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IKinectSensor::get_FrameDescription()" << endl;
-		exit(0);
-	}
-	depthFrameDescription->get_Width(&CAMERA_WIDTH);
-	depthFrameDescription->get_Height(&CAMERA_HEIGHT);
-
-
-	// Source to Reader
-	hResult = pDepthSource->OpenReader(&pDepthReader);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IDepthFrameSource::OpenReader()" << endl;
-		exit(0);
-	}
-	SafeRelease(pDepthSource);
-
-#ifdef USE_COLOR_V2
-	/* Color */
-	// Sensor to Source
-	IColorFrameSource* pColorSource;
-	hResult = pSensor->get_ColorFrameSource(&pColorSource);
-	if (FAILED(hResult)){
-		cerr << "Error : IKinectSensor::get_ColorFrameSource()" << endl;
-		exit(0);
-	}
-
-	// Reader
-	hResult = pColorSource->OpenReader(&pColorReader);
-	if (FAILED(hResult)){
-		std::cerr << "Error : IColorFrameSource::OpenReader()" << std::endl;
-		exit(0);
-	}
-#endif
-}
+//void MultiCursorAppCpp::initKinectV2()
+//{
+//	// Find Sensor
+//	IKinectSensor* pSensor;
+//	HRESULT hResult = S_OK;
+//	hResult = GetDefaultKinectSensor(&pSensor);
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : GetDefaultKinectSensor()" << endl;
+//		exit(0);
+//	}
+//
+//	hResult = pSensor->get_CoordinateMapper(&pCoordinateMapper);
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : IKinectSensor::get_CoordinateMapper()" << endl;
+//		exit(0);
+//	}
+//
+//	// Open stream of the sensor
+//	hResult = pSensor->Open();
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : IKinectSensor::Open()" << endl;
+//		exit(0);
+//	}
+//
+//	/* Depth */
+//	// Sensor to Source 
+//	IDepthFrameSource* pDepthSource;
+//	hResult = pSensor->get_DepthFrameSource(&pDepthSource);
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : IKinectSensor::get_DepthFrameSource()" << endl;
+//		exit(0);
+//	}
+//
+//	// Get depth image size
+//	IFrameDescription* depthFrameDescription;
+//	hResult = pDepthSource->get_FrameDescription(&depthFrameDescription);
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : IKinectSensor::get_FrameDescription()" << endl;
+//		exit(0);
+//	}
+//	depthFrameDescription->get_Width(&CAMERA_WIDTH);
+//	depthFrameDescription->get_Height(&CAMERA_HEIGHT);
+//
+//
+//	// Source to Reader
+//	hResult = pDepthSource->OpenReader(&pDepthReader);
+//	if (FAILED(hResult))
+//	{
+//		cerr << "Error : IDepthFrameSource::OpenReader()" << endl;
+//		exit(0);
+//	}
+//	SafeRelease(pDepthSource);
+//
+//#ifdef USE_COLOR_V2
+//	/* Color */
+//	// Sensor to Source
+//	IColorFrameSource* pColorSource;
+//	hResult = pSensor->get_ColorFrameSource(&pColorSource);
+//	if (FAILED(hResult)){
+//		cerr << "Error : IKinectSensor::get_ColorFrameSource()" << endl;
+//		exit(0);
+//	}
+//
+//	// Reader
+//	hResult = pColorSource->OpenReader(&pColorReader);
+//	if (FAILED(hResult)){
+//		std::cerr << "Error : IColorFrameSource::OpenReader()" << std::endl;
+//		exit(0);
+//	}
+//#endif
+//}
 
 bool MultiCursorAppCpp::getDepthImageV2()
 {
-	// Initialize matrix for each data
-	userAreaMat = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3);
-	point3fMatrix = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_32FC3);
-	heightMatrix = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_16UC1);
+	// Get depth frame data
+	if (!kinectBasics.GetDepthMat(depthImage, heightMatrix, point3fMatrix)) { return false; }
+	// init
+	userAreaMat = Mat::zeros(kinectBasics.heightDepth, kinectBasics.widthDepth, CV_8UC3);
 
-	// センサからのフレーム情報を一旦保管する
-	unsigned int bufferSize = CAMERA_WIDTH * CAMERA_HEIGHT * sizeof(unsigned short);
-	Mat bufferMat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_16SC1);
-	depthImage = Mat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC1);
-	Mat depthMat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC1);
-
-	UINT16 *pDepthBuffer = NULL;
-
-	// Frame
-	IDepthFrame* pDepthFrame = nullptr;
-	HRESULT hResult = S_OK, hResult2 = S_OK;
-	pDepthReader != NULL ? hResult = pDepthReader->AcquireLatestFrame(&pDepthFrame) : hResult = E_POINTER;
-	if (SUCCEEDED(hResult))
+	for (int y = 0; y < kinectBasics.heightDepth; ++y)
 	{
-		hResult = pDepthFrame->AccessUnderlyingBuffer(&bufferSize, reinterpret_cast<UINT16**>(&bufferMat.data));
-		hResult2 = pDepthFrame->AccessUnderlyingBuffer(&bufferSize, &pDepthBuffer);
-		if (SUCCEEDED(hResult) && SUCCEEDED(hResult))
+		for (int x = 0; x < kinectBasics.widthDepth; ++x)
 		{
-			bufferMat.convertTo(depthImage, CV_8U, -255.0f / 4500.0f, 255.0f);
-		}
-
-		for (int y = 0; y < CAMERA_HEIGHT; y++)
-		{
-			for (int x = 0; x < CAMERA_WIDTH; x++)
+			// 床からの高さを求める
+			USHORT distance = *heightMatrix.ptr<USHORT>(y, x);
+			// 机より高い点のみユーザエリアとして記録
+			USHORT offset = 200;
+			if (0 < distance && distance < (USHORT)*TKinect2Marker.ptr<float>(2, 3) - offset)
 			{
-				// Set heights from the floor
-				short distance = *bufferMat.ptr<short>(y, x);
-				short heightFromFloor;
-				(0 < distance && distance < KINECT_HEIGHT) ? heightFromFloor = KINECT_HEIGHT - distance : heightFromFloor = 0;
-				*heightMatrix.ptr<USHORT>(y, x) = (USHORT)heightFromFloor;
-
-				// Set user area
-				int index = ((y * CAMERA_WIDTH) + x) * 3;
+				// 床からの高さ
+				*heightMatrix.ptr<USHORT>(y, x) = (USHORT)(KINECT_HEIGHT - distance);
+				// ユーザエリア
+				//userAreaMat.ptr<Vec3b>(y, x)[0] = 255;
+				//userAreaMat.ptr<Vec3b>(y, x)[1] = 255;
+				//userAreaMat.ptr<Vec3b>(y, x)[2] = 255;
+				int index = ((y * kinectBasics.widthDepth) + x) * 3;
 				UCHAR* dataDepth = &userAreaMat.data[index];
-				if (USER_HEIGHT_THRESHOLD <= heightFromFloor && heightFromFloor <= HEAD_HEIGHT_MAX) {
-					dataDepth[0] = 255;
-					dataDepth[1] = 255;
-					dataDepth[2] = 255;
-				}
-				else {
-					dataDepth[0] = 0;
-					dataDepth[1] = 0;
-					dataDepth[2] = 0;
-				}
+				dataDepth[0] = 255;
+				dataDepth[1] = 255;
+				dataDepth[2] = 255;
 			}
-		}
-
-		// Set point cloud
-		UINT pointCount = CAMERA_WIDTH * CAMERA_HEIGHT;
-		CameraSpacePoint* cameraSpacePoint = new CameraSpacePoint[CAMERA_WIDTH * CAMERA_HEIGHT];	// Points in camera coordinate [m]
-		hResult = pCoordinateMapper->MapDepthFrameToCameraSpace(pointCount, pDepthBuffer, pointCount, cameraSpacePoint);
-		if (!SUCCEEDED(hResult))
-		{
-			cout << "Error: MapDepthFrameToCameraSpace()" << endl;
-		}
-		for (int y = 0; y < CAMERA_HEIGHT; ++y)
-		{
-			for (int x = 0; x < CAMERA_WIDTH; ++x)
+			else
 			{
-				int index = y * CAMERA_WIDTH + x;
-				point3fMatrix.ptr<float>(y, x)[0] = cameraSpacePoint[index].X;
-				point3fMatrix.ptr<float>(y, x)[1] = cameraSpacePoint[index].Y;
-				point3fMatrix.ptr<float>(y, x)[2] = cameraSpacePoint[index].Z;
+				*heightMatrix.ptr<USHORT>(y, x) = 0;
 			}
 		}
-		delete[] cameraSpacePoint;		// メモリ開放忘れない
+	}
 
-	}
-	else {
-		return false;
-	}
-	SafeRelease(pDepthFrame);
+
+	// Initialize matrix for each data
+	//userAreaMat = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3);
+	//point3fMatrix = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_32FC3);
+	//heightMatrix = Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_16UC1);
+
+	//// センサからのフレーム情報を一旦保管する
+	//unsigned int bufferSize = CAMERA_WIDTH * CAMERA_HEIGHT * sizeof(unsigned short);
+	//Mat bufferMat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_16SC1);
+	//depthImage = Mat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC1);
+	//Mat depthMat(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC1);
+
+	//UINT16 *pDepthBuffer = NULL;
+
+	//// Frame
+	//IDepthFrame* pDepthFrame = nullptr;
+	//HRESULT hResult = S_OK, hResult2 = S_OK;
+	//pDepthReader != NULL ? hResult = pDepthReader->AcquireLatestFrame(&pDepthFrame) : hResult = E_POINTER;
+	//if (SUCCEEDED(hResult))
+	//{
+	//	hResult = pDepthFrame->AccessUnderlyingBuffer(&bufferSize, reinterpret_cast<UINT16**>(&bufferMat.data));
+	//	hResult2 = pDepthFrame->AccessUnderlyingBuffer(&bufferSize, &pDepthBuffer);
+	//	if (SUCCEEDED(hResult) && SUCCEEDED(hResult))
+	//	{
+	//		bufferMat.convertTo(depthImage, CV_8U, -255.0f / 4500.0f, 255.0f);
+	//	}
+
+	//	for (int y = 0; y < CAMERA_HEIGHT; y++)
+	//	{
+	//		for (int x = 0; x < CAMERA_WIDTH; x++)
+	//		{
+	//			// Set heights from the floor
+	//			short distance = *bufferMat.ptr<short>(y, x);
+	//			short heightFromFloor;
+	//			(0 < distance && distance < KINECT_HEIGHT) ? heightFromFloor = KINECT_HEIGHT - distance : heightFromFloor = 0;
+	//			*heightMatrix.ptr<USHORT>(y, x) = (USHORT)heightFromFloor;
+
+	//			// Set user area
+	//			int index = ((y * CAMERA_WIDTH) + x) * 3;
+	//			UCHAR* dataDepth = &userAreaMat.data[index];
+	//			if (USER_HEIGHT_THRESHOLD <= heightFromFloor && heightFromFloor <= HEAD_HEIGHT_MAX) {
+	//				dataDepth[0] = 255;
+	//				dataDepth[1] = 255;
+	//				dataDepth[2] = 255;
+	//			}
+	//			else {
+	//				dataDepth[0] = 0;
+	//				dataDepth[1] = 0;
+	//				dataDepth[2] = 0;
+	//			}
+	//		}
+	//	}
+
+	//	// Set point cloud
+	//	UINT pointCount = CAMERA_WIDTH * CAMERA_HEIGHT;
+	//	CameraSpacePoint* cameraSpacePoint = new CameraSpacePoint[CAMERA_WIDTH * CAMERA_HEIGHT];	// Points in camera coordinate [m]
+	//	hResult = pCoordinateMapper->MapDepthFrameToCameraSpace(pointCount, pDepthBuffer, pointCount, cameraSpacePoint);
+	//	if (!SUCCEEDED(hResult))
+	//	{
+	//		cout << "Error: MapDepthFrameToCameraSpace()" << endl;
+	//	}
+	//	for (int y = 0; y < CAMERA_HEIGHT; ++y)
+	//	{
+	//		for (int x = 0; x < CAMERA_WIDTH; ++x)
+	//		{
+	//			int index = y * CAMERA_WIDTH + x;
+	//			point3fMatrix.ptr<float>(y, x)[0] = cameraSpacePoint[index].X;
+	//			point3fMatrix.ptr<float>(y, x)[1] = cameraSpacePoint[index].Y;
+	//			point3fMatrix.ptr<float>(y, x)[2] = cameraSpacePoint[index].Z;
+	//		}
+	//	}
+	//	delete[] cameraSpacePoint;		// メモリ開放忘れない
+
+	//}
+	//else {
+	//	return false;
+	//}
+	//SafeRelease(pDepthFrame);
 
 	return true;
 }
@@ -520,8 +557,8 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 			if (p->isDataFound)	{ continue; }	// 既に見つかった領域は無視する
 			float distance = sqrt(pow(it->second->centroid.x - p->centroid.x, 2) + pow(it->second->centroid.y - p->centroid.y, 2));
 			float distanceZ = abs(*heightMatrix.ptr<USHORT>(it->second->centroid.y, it->second->centroid.x) - *heightMatrix.ptr<USHORT>(p->centroid.y, p->centroid.x));
-			//cout << distance << endl;
-			if (distance < 50.0f && distanceZ < 300.0f)	// 十分に距離が近いかチェック
+			cout << distance << endl;
+			if (distance < 30.0f && distanceZ < 200.0f)	// 十分に距離が近いかチェック
 			{
 				p->isDataFound = true;
 
@@ -608,9 +645,9 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		int offset_head = 100;  // 作業場用
 #endif
 		int minY = userData[blobID].headInfo.depthPoint.y - offset_head;  if (minY < 0) minY = 0;
-		int maxY = userData[blobID].headInfo.depthPoint.y + offset_head;  if (maxY > CAMERA_HEIGHT) maxY = CAMERA_HEIGHT;
+		int maxY = userData[blobID].headInfo.depthPoint.y + offset_head;  if (maxY > kinectBasics.heightDepth) maxY = kinectBasics.heightDepth;
 		int minX = userData[blobID].headInfo.depthPoint.x - offset_head;  if (minX < 0) minX = 0;
-		int maxX = userData[blobID].headInfo.depthPoint.x + offset_head;  if (maxX > CAMERA_WIDTH) maxX = CAMERA_WIDTH;
+		int maxX = userData[blobID].headInfo.depthPoint.x + offset_head;  if (maxX > kinectBasics.widthDepth) maxX = kinectBasics.widthDepth;
 		for (int y = minY; y <= maxY; y++)
 		{
 			for (int x = minX; x <= maxX; x++)
@@ -706,9 +743,9 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 						cameraPoint.X = point3fMatrix.ptr<float>(y, x)[0];
 						cameraPoint.Y = point3fMatrix.ptr<float>(y, x)[1];
 						cameraPoint.Z = point3fMatrix.ptr<float>(y, x)[2];
-						pCoordinateMapper->MapCameraPointToDepthSpace(cameraPoint, &depthPoint);
+						kinectBasics.GetMapper()->MapCameraPointToDepthSpace(cameraPoint, &depthPoint);
 
-						int index = ((y * CAMERA_WIDTH) + x) * 3;
+						int index = ((y * kinectBasics.widthDepth) + x) * 3;
 						UCHAR* dataDepth = &userAreaMat.data[index];
 						dataDepth[0] = 0;
 						dataDepth[1] = 200;
@@ -747,7 +784,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 			cameraPoint.X = handPosition.x;
 			cameraPoint.Y = handPosition.y;
 			cameraPoint.Z = handPosition.z;
-			pCoordinateMapper->MapCameraPointToDepthSpace(cameraPoint, &depthPoint);
+			kinectBasics.GetMapper()->MapCameraPointToDepthSpace(cameraPoint, &depthPoint);
 			circle(userAreaMat, Point(depthPoint.X, depthPoint.Y), 7, Scalar(0, 200, 0), 3);
 #endif
 		}
@@ -791,10 +828,13 @@ void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x*1000, userData[blobID].handInfo.cameraPoint.y*1000, userData[blobID].handInfo.cameraPoint.z*1000, 1);
 			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x*1000, userData[blobID].headInfo.cameraPoint.y*1000, userData[blobID].headInfo.cameraPoint.z*1000, 1);
 
-			//Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
-			//Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
-			Mat handPointScreen = TMarker2Display * TKinect2Marker * handPoint;
-			Mat headPointScreen = TMarker2Display * TKinect2Marker * headPoint;
+#ifdef USE_KINECT_V1
+			Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
+			Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
+#else
+			Mat handPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * handPoint;
+			Mat headPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * headPoint;
+#endif
 
 			// Caliculate the intersection point of vector and screen
 			float xvec = *handPointScreen.ptr<float>(0, 0) - *headPointScreen.ptr<float>(0, 0);
@@ -810,8 +850,15 @@ void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 			cursorScreen3d.z = 0.0f;
 
 			// Calculate cursor position in pixel coordinate
+#ifdef USE_KINECT_V1
+			// Calculate cursor position in pixel coordinate
+			float screen3dTo2d = 246 / 0.432f;
+			userData[blobID].cursorInfo.position.x = cursorScreen3d.x * screen3dTo2d;
+			userData[blobID].cursorInfo.position.y = cursorScreen3d.y * screen3dTo2d;
+#else
 			userData[blobID].cursorInfo.position.x =  (*TDisplay2Pixel.ptr<float>(0, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(0, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(0, 2));
 			userData[blobID].cursorInfo.position.y =  (*TDisplay2Pixel.ptr<float>(1, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(1, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(1, 2));
+#endif
 		}
 		++blobID;
 	}
@@ -847,7 +894,7 @@ void MultiCursorAppCpp::initGL(int argc, char* argv[])
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 
 	/* Camera setup */
-	glViewport(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
+	glViewport(0, 0, kinectBasics.widthDepth, kinectBasics.heightDepth);
 	glLoadIdentity();
 
 	/* GLのウィンドウをフルスクリーンに */
@@ -869,7 +916,11 @@ void MultiCursorAppCpp::display(void)
 		{
 			if (userData[i].cursorInfo.isShownCursor)
 			{
+#ifdef USE_KINECT_V1
+				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH, -(userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT);
+#else
 				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH, (userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT);
+#endif
 				glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				glBegin(GL_QUADS);
 				float offset = 40 * 5;
@@ -932,6 +983,12 @@ static void skeyboard(unsigned char key, int x, int y)
 
 void MultiCursorAppCpp::loadCalibData()
 {
+	FileStorage cvfsTd2c(KINECT_D2C_TRANS_FILENAME, CV_STORAGE_READ);
+	FileNode nodeTd2c(cvfsTd2c.fs, NULL);
+	FileNode fnTd2c = nodeTd2c[string("mat_array")];
+	read(fnTd2c[0], TKinectDepth2Color);
+	cout << TKinectDepth2Color << endl;
+
 	FileStorage cvfsTk2m(KINECT_TRANS_FILENAME, CV_STORAGE_READ);
 	FileNode nodeTk2m(cvfsTk2m.fs, NULL);
 	FileNode fnTk2m = nodeTk2m[string("T_K2M")];
@@ -966,6 +1023,7 @@ void MultiCursorAppCpp::showHelp()
 
 // クラス定義
 MultiCursorAppCpp app;
+KinectV2Basics kinectBasics;
 
 int main(int argc, char* argv[])
 {
@@ -977,7 +1035,8 @@ int main(int argc, char* argv[])
 #ifdef USE_KINECT_V1
 	app.initKinect();
 #else
-	app.initKinectV2();
+	//app.initKinectV2();
+	kinectBasics.SetupKinectV2();
 #endif
 	glutMainLoop();
 

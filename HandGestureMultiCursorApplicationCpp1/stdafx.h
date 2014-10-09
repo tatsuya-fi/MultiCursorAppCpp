@@ -15,6 +15,7 @@
 #include <list>
 #include "MyLib.h"
 #include "cvblob.h"
+#include "KinectV2Basics.h"
 
 using namespace std;
 using namespace cv;

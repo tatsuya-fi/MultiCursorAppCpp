@@ -47,20 +47,23 @@ const int HEAD_LENGTH = 150;
 const float SENCIG_CIRCLE_RADIUS = 0.45f;
 
 // 各座標変換行列
+const static char* KINECT_D2C_TRANS_FILENAME = "calibData/T_KD2C.xml";
 const static char* KINECT_TRANS_FILENAME = "calibData/T_Kinect2Marker.xml";
 const static char* MARKER_TRANS_FILENAME = "calibData/T_Marker2Display.xml";
 const static char* DISP_TRANS_FILENAME   = "calibData/T_Display2Pixel.xml";
 
-//const static Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
-//	0, 1, 0, 3.4,
-//	0, 0, 1, -0.30,
-//	1, 0, 0, -2.4,
-//	0, 0, 0, 1);
-//const static Mat T_WorldToScreen = (cv::Mat_<float>(4, 4) << 
-//	1, 0, 0, 0,
-//	0, 1, 0, 0,
-//	0, 0, 1, 0,
-//	0, 0, 0, 1);
+#ifdef USE_KINECT_V1
+const static Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
+	0, 1, 0, 3.4,
+	0, 0, 1, -0.30,
+	1, 0, 0, -2.4,
+	0, 0, 0, 1);
+const static Mat T_WorldToScreen = (cv::Mat_<float>(4, 4) << 
+	1, 0, 0, 0,
+	0, 1, 0, 0,
+	0, 0, 1, 0,
+	0, 0, 0, 1);
+#endif
 
 ///////////////////////////////////////////////////////////////////
 /// </Settings>
@@ -113,10 +116,12 @@ public:
 	void showHelp();
 
 private:
+
+#ifdef USE_KINECT_V1
 	// Window size (depth)
 	int CAMERA_WIDTH;
 	int CAMERA_HEIGHT;
-
+#endif
 	// Each pixel or 3D point data
 	Mat	userAreaMat;	// Areas of each users
 	Mat point3fMatrix;	// 3D points of the observed points
@@ -126,6 +131,7 @@ private:
 	Mat rgbImage;		// Image from kinect color camera
 
 	// 座標変換行列
+	Mat TKinectDepth2Color;
 	Mat TKinect2Marker;
 	Mat TMarker2Display;
 	Mat TDisplay2Pixel;
@@ -207,14 +213,15 @@ private:
 
 // クラス宣言
 extern MultiCursorAppCpp app;
+extern KinectV2Basics kinectBasics;
 
 /* Kinect_v2 */
 // Sensor
-static IKinectSensor* pSensor;
-// Reader: Depth dataを保管するストリーム
-static IDepthFrameReader* pDepthReader;
-// CoordinateMapper
-static ICoordinateMapper* pCoordinateMapper;
+//static IKinectSensor* pSensor;
+//// Reader: Depth dataを保管するストリーム
+//static IDepthFrameReader* pDepthReader;
+//// CoordinateMapper
+//static ICoordinateMapper* pCoordinateMapper;
 
 #ifdef USE_COLOR_V2
 // Reader: Color dataを保管するストリーム
