@@ -44,7 +44,7 @@ const int SHOULDER_LENGTH = 300;
 const int HEAD_LENGTH = 150;
 
 // 手を検出するための, 頭を中心とした球の半径 [mm]
-const float SENCIG_CIRCLE_RADIUS = 0.45f;
+const float SENCIG_CIRCLE_RADIUS = 0.55;
 
 // 各座標変換行列
 const static char* KINECT_D2C_TRANS_FILENAME = "calibData/T_KD2C.xml";
@@ -126,6 +126,8 @@ private:
 	Mat	userAreaMat;	// Areas of each users
 	Mat point3fMatrix;	// 3D points of the observed points
 	Mat heightMatrix;	// Heights of each pixel from the floor
+	Mat labelMat;		// Label of each pixels
+	Mat preLabelMat;	// Label of each pixels in pre-frame
 
 	Mat depthImage;		// Image from kinect depth camera
 	Mat rgbImage;		// Image from kinect color camera
@@ -158,6 +160,7 @@ private:
 		bool isClicking;
 	} CursorInfo;
 
+
 	// Data for each user
 	typedef struct {
 		
@@ -169,6 +172,7 @@ private:
 
 		// 重心
 		Point2i centroid;
+		unsigned long labelID;
 
 		CursorInfo cursorInfo;
 
@@ -177,7 +181,6 @@ private:
 	//UserData userData;
 	vector<UserData> userData;
 	vector<UserData> preUserData;
-	vector<UserData>::iterator p;
 
 	/* Handles for kinect v1 */
 	INuiSensor* kinect;
