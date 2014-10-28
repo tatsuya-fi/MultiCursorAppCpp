@@ -13,6 +13,9 @@ public:
 	const static int widthColor  = 1920;
 	const static int heightColor = 1080;
 
+	// Select using data (Call before "bool SetupKinectV2()")
+	void SelectUsingData(const bool isUseDepthStream, const bool isUseColorStream);
+
 	// Set up KinectV2
 	bool SetupKinectV2();
 
@@ -57,6 +60,8 @@ private:
 	// Mapper
 	ICoordinateMapper*	pCoordinateMapper;
 
+	// 各データのオンオフ
+	bool isUseDepth, isUseColor;
 	
 
 #ifdef OPENCV

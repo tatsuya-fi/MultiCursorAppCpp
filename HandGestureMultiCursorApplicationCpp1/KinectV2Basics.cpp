@@ -4,7 +4,9 @@
 using namespace std;
 using namespace cv;
 
-KinectV2Basics::KinectV2Basics()
+KinectV2Basics::KinectV2Basics():
+isUseDepth(true),
+isUseColor(true)
 {
 }
 
@@ -24,6 +26,11 @@ KinectV2Basics::~KinectV2Basics()
 	SafeRelease(pSensor);
 }
 
+void KinectV2Basics::SelectUsingData(const bool isUseDepthStream, const bool isUseColorStream)
+{
+	isUseDepth = isUseDepthStream;
+}
+
 bool KinectV2Basics::SetupKinectV2()
 {
 	HRESULT hResult = S_OK;
@@ -41,36 +48,42 @@ bool KinectV2Basics::SetupKinectV2()
 		return false;
 	}
 
-	// Source(Depth)
-	hResult = pSensor->get_DepthFrameSource(&pDepthSource);
-	if (FAILED(hResult))
+	if (isUseDepth)
 	{
-		cerr << "Error : IKinectSensor::get_DepthFrameSource()" << endl;
-		return false;
+		// Source(Depth)
+		hResult = pSensor->get_DepthFrameSource(&pDepthSource);
+		if (FAILED(hResult))
+		{
+			cerr << "Error : IKinectSensor::get_DepthFrameSource()" << endl;
+			return false;
+		}
+
+		// Reader(Depth)
+		hResult = pDepthSource->OpenReader(&pDepthReader);
+		if (FAILED(hResult))
+		{
+			cerr << "Error : IDepthFrameSource::OpenReader()" << endl;
+			return false;
+		}
 	}
 
-	// Reader(Depth)
-	hResult = pDepthSource->OpenReader(&pDepthReader);
-	if (FAILED(hResult))
+	if (isUseColor)
 	{
-		cerr << "Error : IDepthFrameSource::OpenReader()" << endl;
-		return false;
-	}
+		// Source(Color)
+		hResult = pSensor->get_ColorFrameSource(&pColorSource);
+		if (FAILED(hResult))
+		{
+			cerr << "Error : IKinectSensor::get_ColorFrameSource()" << endl;
+			return false;
+		}
 
-	// Source(Color)
-	hResult = pSensor->get_ColorFrameSource(&pColorSource);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IKinectSensor::get_ColorFrameSource()" << endl;
-		return false;
-	}
-
-	// Reader(Color)
-	hResult = pColorSource->OpenReader(&pColorReader);
-	if (FAILED(hResult))
-	{
-		cerr << "Error : IColorFrameSource::OpenReader()" << endl;
-		return false;
+		// Reader(Color)
+		hResult = pColorSource->OpenReader(&pColorReader);
+		if (FAILED(hResult))
+		{
+			cerr << "Error : IColorFrameSource::OpenReader()" << endl;
+			return false;
+		}
 	}
 
 	// Mapper
@@ -134,6 +147,12 @@ ICoordinateMapper* KinectV2Basics::GetMapper()
 
 bool KinectV2Basics::GetDepthMat(Mat& outDepth16U)
 {
+	if (!isUseDepth)
+	{
+		cout << "Error(GetDepthMat()): Depth stream is not working. Enable it by using SelectUsingData()." << endl;
+		exit(-1);
+	}
+
 	unsigned int bufferSize = widthDepth * heightDepth * sizeof(unsigned short);
 	Mat bufferMat(heightDepth, widthDepth, CV_16SC1);
 
@@ -265,6 +284,12 @@ bool KinectV2Basics::GetPointsMat(Mat& pointsMat)
 
 bool KinectV2Basics::GetColorMat(cv::Mat& outColor)
 {
+	if (!isUseColor)
+	{
+		cout << "Error(GetColorMat()): Color stream is not working. Enable it by using SelectUsingData()." << endl;
+		exit(-1);
+	}
+
 	unsigned int bufferSize = widthColor * heightColor * 4 * sizeof(unsigned char);
 	Mat colorMat(heightColor, widthColor, CV_8UC4);
 

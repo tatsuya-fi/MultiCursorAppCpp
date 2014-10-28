@@ -9,18 +9,12 @@
 
 #define TRACK_GESTURE_BY_AREA	// これをdefineした時は手領域の正規化した面積に応じてジェスチャ判定する
 
-// #define USE_COLOR_VK2
+// #define USE_COLOR_V2
 
 
-// Screen resolution
-//const int WINDOW_WIDTH  = 2560;
-//const int WINDOW_HEIGHT = 1024;
-const int WINDOW_WIDTH = 1280;
-const int WINDOW_HEIGHT = 1024;
 
 
-// The resolution of the kinect depth camera
-const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
+
 
 // The height of Kinect which is set on the celling
 const int KINECT_HEIGHT = 2700;		// ミーティングルーム用
@@ -35,7 +29,7 @@ const int USER_HEIGHT_THRESHOLD = 900;	// ミーティングルーム用
 const int HEAD_HEIGHT_MAX = 2400;
 
 // The height of the desk (This separate objects and users)
-const int DESK_HEIGHT = 600;
+const int DESK_HEIGHT = KINECT_HEIGHT - 1.9944671684835250e+003;
 
 // The length of the user's shoulder [mm]
 const int SHOULDER_LENGTH = 300;
@@ -44,15 +38,19 @@ const int SHOULDER_LENGTH = 300;
 const int HEAD_LENGTH = 150;
 
 // 手を検出するための, 頭を中心とした球の半径 [mm]
-const float SENCIG_CIRCLE_RADIUS = 0.55;
+const float SENCIG_CIRCLE_RADIUS = 0.45;
 
 // 各座標変換行列
-const static char* KINECT_D2C_TRANS_FILENAME = "calibData/T_KD2C.xml";
-const static char* KINECT_TRANS_FILENAME = "calibData/T_Kinect2Marker.xml";
-const static char* MARKER_TRANS_FILENAME = "calibData/T_Marker2Display.xml";
-const static char* DISP_TRANS_FILENAME   = "calibData/T_Display2Pixel.xml";
+const static vector<char*> DISP_INFO_FILENAMES = { 
+		{"calibData/DispInfo1.xml"}
+		//{"calibData/DispInfo2.xml"}
+};
+
 
 #ifdef USE_KINECT_V1
+// The resolution of the kinect depth camera
+const NUI_IMAGE_RESOLUTION KINECT_RESOLUTION = NUI_IMAGE_RESOLUTION_640x480;
+
 const static Mat T_KinectCameraToWorld = (cv::Mat_<float>(4,4) <<  
 	0, 1, 0, 3.4,
 	0, 0, 1, -0.30,
@@ -111,11 +109,14 @@ public:
 	void reshape(int w, int h);
 	void idle(void);
 	void keyboard(unsigned char key, int x, int y);
-	//void mouse(int button, int state, int mouse_x, int mouse_y);
+	void mouse(int button, int state, int mouse_x, int mouse_y);
 
 	void showHelp();
 
 private:
+	// Screen resolution
+	vector<int> VEC_WIN_WIDTH;
+	vector<int> VEC_WIN_HEIGHT;
 
 #ifdef USE_KINECT_V1
 	// Window size (depth)
@@ -133,11 +134,9 @@ private:
 	Mat rgbImage;		// Image from kinect color camera
 
 	// 座標変換行列
-	Mat TKinectDepth2Color;
-	Mat TKinect2Marker;
-	Mat TMarker2Display;
-	Mat TDisplay2Pixel;
-
+	vector<Mat> TKinect2Display;
+	vector<Mat> TDisplay2Pixel;
+	vector<int> windowOffsetX;	// マルチディスプレイ表示の際，他のディスプレイを考慮した座標値を求めるために使う
 
 	// 頭に関する情報
 	typedef struct {
@@ -151,15 +150,17 @@ private:
 	typedef struct {
 		Point3f cameraPoint;
 		float area;
+		bool isTracked;
 	} HandInfo;
 
 	// カーソルに関する情報
 	typedef struct {
+		int displayNum;
 		Point2f position;
 		bool isShownCursor;
 		bool isClicking;
 	} CursorInfo;
-
+	
 
 	// Data for each user
 	typedef struct {
@@ -210,6 +211,9 @@ private:
 	void showDebugWindows();
 
 
+	/* OpenGL */
+	int* WinIDs;
+
 	void MouseControl(float x, float y);
 
 };
@@ -235,4 +239,4 @@ void sdisplay();
 void sreshape(int w, int h);
 void sidle(void);
 void skeyboard(unsigned char key, int x, int y);
-//void smouse(int button, int state, int mouse_x, int mouse_y)
+void smouse(int button, int state, int mouse_x, int mouse_y);

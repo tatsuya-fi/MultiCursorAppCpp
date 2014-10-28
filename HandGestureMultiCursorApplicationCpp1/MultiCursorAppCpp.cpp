@@ -22,6 +22,8 @@ MultiCursorAppCpp::~MultiCursorAppCpp()
 
 	// CVのウィンドウ破棄（念のため)
 	destroyAllWindows();
+
+	delete[] WinIDs;
 }
 
 
@@ -193,7 +195,12 @@ void MultiCursorAppCpp::getRgbImageV1()
 bool MultiCursorAppCpp::getDepthImageV2()
 {
 	// Get depth frame data
-	if (!kinectBasics.GetDepthMat(depthImage, heightMatrix, point3fMatrix)) { return false; }
+	//if (!kinectBasics.GetDepthMat(depthImage, heightMatrix, point3fMatrix)) { return false; }
+	bool isGetFrame = false;
+	while (!isGetFrame)
+	{
+		isGetFrame = kinectBasics.GetDepthMat(depthImage, heightMatrix, point3fMatrix);
+	}
 	// init
 	userAreaMat = Mat::zeros(kinectBasics.heightDepth, kinectBasics.widthDepth, CV_8UC3);
 
@@ -205,14 +212,11 @@ bool MultiCursorAppCpp::getDepthImageV2()
 			USHORT distance = *heightMatrix.ptr<USHORT>(y, x);
 			// 机より高い点のみユーザエリアとして記録
 			USHORT offset = 200;
-			if (0 < distance && distance < (USHORT)*TKinect2Marker.ptr<float>(2, 3) - offset)
+			if (0 < distance && distance < KINECT_HEIGHT - DESK_HEIGHT - offset)
 			{
 				// 床からの高さ
 				*heightMatrix.ptr<USHORT>(y, x) = (USHORT)(KINECT_HEIGHT - distance);
 				// ユーザエリア
-				//userAreaMat.ptr<Vec3b>(y, x)[0] = 255;
-				//userAreaMat.ptr<Vec3b>(y, x)[1] = 255;
-				//userAreaMat.ptr<Vec3b>(y, x)[2] = 255;
 				int index = ((y * kinectBasics.widthDepth) + x) * 3;
 				UCHAR* dataDepth = &userAreaMat.data[index];
 				dataDepth[0] = 255;
@@ -225,7 +229,6 @@ bool MultiCursorAppCpp::getDepthImageV2()
 			}
 		}
 	}
-
 	return true;
 }
 
@@ -341,7 +344,7 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 #ifdef USE_KINECT_V1
 	dilate(src, src, Mat(), Point(-1, -1), 3);
 #else
-	dilate(src, src, Mat(), Point(-1, -1), 1);
+	//dilate(src, src, Mat(), Point(-1, -1), 1);
 #endif
 
 	/* Use IplImage (Labeling for Mat is not fully implemented) */
@@ -363,7 +366,7 @@ CvBlobs MultiCursorAppCpp::labelingUserArea(Mat& src)
 	CV_Assert(reinterpret_cast<uchar*>(labelImg->imageData) != labelMat.data);
 	
 	// Filter noise / ノイズ点の消去
-	cvFilterByArea(blobs, 1000, 1000000);
+	cvFilterByArea(blobs, 2000, 1000000);
 
 	// Render blobs
 	cvRenderBlobs(labelImg, blobs, &srcIpl, &srcIpl);
@@ -463,41 +466,6 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 	preLabelMat = labelMat;
 
 
-	// 重心の位置を元に全フレームとのユーザ領域の対応を取る
-	//for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it)
-	//{
-	//	UserData newUserData;
-	//	newUserData.isDataFound = false;
-
-	//	for (vector<UserData>::iterator p = preUserData.begin(); p != preUserData.end(); ++p)
-	//	{
-	//		if (!p->isDataFound)
-	//		{
-	//			float distance = sqrt(pow(it->second->centroid.x - p->centroid.x, 2) + pow(it->second->centroid.y - p->centroid.y, 2));
-	//			float distanceZ = abs(*heightMatrix.ptr<USHORT>(it->second->centroid.y, it->second->centroid.x) - *heightMatrix.ptr<USHORT>(p->centroid.y, p->centroid.x));
-	//			//cout << distance << endl;
-	//			if (distance < 20.0f && distanceZ < 200.0f)	// 十分に距離が近いかチェック
-	//			{
-	//				p->isDataFound = true;
-	//				cout << "true" << endl;
-	//				newUserData.isDataFound = true;
-	//				newUserData.headInfo.height = p->headInfo.height;
-	//				newUserData.headInfo.depthPoint.x = p->headInfo.depthPoint.x;
-	//				newUserData.headInfo.depthPoint.y = p->headInfo.depthPoint.y;
-
-	//				break;
-	//			}
-	//			else
-	//				cout << "false" <<  endl;
-	//		}
-	//	}
-
-	//	newUserData.labelID = it->first;
-	//	newUserData.centroid.x = it->second->centroid.x;
-	//	newUserData.centroid.y = it->second->centroid.y;
-	//	userData.push_back(newUserData);
-	//}
-
 	// Find the highest point of each user area
 	USHORT* headHeights = new USHORT[blobs.size()];
 	Point2i* newHighestPositions = new Point2i[blobs.size()];
@@ -525,7 +493,6 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		}
 		// Debug: Show the highest point of each users
 		// circle(userAreaMat, Point(newHighestPositions[blobID].x, newHighestPositions[blobID].y), 5, Scalar(255, 0, 255), 3);
-		
 		blobID++;
 	}	
 
@@ -550,7 +517,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 			float distanceZ = abs(heightMatrix.at<float>(userData[blobID].headInfo.depthPoint.y, userData[blobID].headInfo.depthPoint.x) - preUserData[blobID].headInfo.height);
 			//cout << distance << endl;
 			// If the point is far from predata, just use pre-data	/ もし前回のフレームより大きく頭の位置がずれていたら前回の値を使う
-			if (distance > 200.0f || distanceZ > 500.0f)
+			if (distance > 80.0f || distanceZ > 1000.0f)
 			{
 				userData[blobID].headInfo.height = preUserData[blobID].headInfo.height;
 				userData[blobID].headInfo.depthPoint.x = preUserData[blobID].headInfo.depthPoint.x;
@@ -610,7 +577,7 @@ void MultiCursorAppCpp::detectHeadPosition(CvBlobs blobs)
 		float* headPosition = point3fMatrix.ptr<float>(userData[i].headInfo.depthPoint.y, userData[i].headInfo.depthPoint.x);
 		userData[i].headInfo.cameraPoint.x = headPosition[0];
 		userData[i].headInfo.cameraPoint.y = headPosition[1];
-		userData[i].headInfo.cameraPoint.z = headPosition[2];
+		userData[i].headInfo.cameraPoint.z = headPosition[2] + 0.2;
 
 		// Debug: Show the head point
 		circle(userAreaMat, Point(userData[i].headInfo.depthPoint.x, userData[i].headInfo.depthPoint.y), 7, Scalar(255, 0, 0), 3);
@@ -645,7 +612,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 					&& it->first == labelMat.at<unsigned long>(y, x)	// 同じblob内のみ探索
 					) // Don't include desk
 				{
-					if (SENCIG_CIRCLE_RADIUS - offset < length && length < SENCIG_CIRCLE_RADIUS + offset) {	// 注目点が球と交差しているかどうか
+					if (SENCIG_CIRCLE_RADIUS - offset < length ) {	// 注目点が球と交差しているかどうか
 						handPosition.x += point3fMatrix.ptr<float>(y, x)[0];
 						handPosition.y += point3fMatrix.ptr<float>(y, x)[1];
 						handPosition.z += point3fMatrix.ptr<float>(y, x)[2];
@@ -687,7 +654,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 
 		if (numIntersectionPoints > 0)
 		{
-			userData[blobID].cursorInfo.isShownCursor = true;
+			userData[blobID].handInfo.isTracked = true;
 
 			handPosition.x /= numIntersectionPoints;
 			handPosition.y /= numIntersectionPoints;
@@ -716,7 +683,7 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 		}
 		else
 		{
-			userData[blobID].cursorInfo.isShownCursor = false;
+			userData[blobID].handInfo.isTracked = false;
 
 			userData[blobID].handInfo.cameraPoint.x = 0.0f;
 			userData[blobID].handInfo.cameraPoint.y = 0.0f;
@@ -747,28 +714,22 @@ void MultiCursorAppCpp::detectHandPosition(CvBlobs blobs)
 
 void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 {
+#ifdef USE_KINECT_V1
 	INT blobID = 0;
 	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) {
-		if (userData[blobID].cursorInfo.isShownCursor)
+		if (userData[blobID].handInfo.isTracked)
 		{
-#ifdef USE_KINECT_V1
 			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x, userData[blobID].handInfo.cameraPoint.y, userData[blobID].handInfo.cameraPoint.z, 1);
 			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x, userData[blobID].headInfo.cameraPoint.y, userData[blobID].headInfo.cameraPoint.z, 1);
 			Mat handPointScreen = T_WorldToScreen * T_KinectCameraToWorld * handPoint;
 			Mat headPointScreen = T_WorldToScreen * T_KinectCameraToWorld * headPoint;
-#else
-			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x * 1000, userData[blobID].handInfo.cameraPoint.y * 1000, userData[blobID].handInfo.cameraPoint.z * 1000, 1);
-			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x * 1000, userData[blobID].headInfo.cameraPoint.y * 1000, userData[blobID].headInfo.cameraPoint.z * 1000, 1);
-			Mat handPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * handPoint;
-			Mat headPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * headPoint;
-#endif
 
 			// Caliculate the intersection point of vector and screen
 			float xvec = *handPointScreen.ptr<float>(0, 0) - *headPointScreen.ptr<float>(0, 0);
 			float yvec = *handPointScreen.ptr<float>(1, 0) - *headPointScreen.ptr<float>(1, 0);
 			float zvec = *handPointScreen.ptr<float>(2, 0) - *headPointScreen.ptr<float>(2, 0);
 
-			float val = - *handPointScreen.ptr<float>(2, 0) / zvec;
+			float val = -*handPointScreen.ptr<float>(2, 0) / zvec;
 
 			// Calculate cursor position in real scall
 			Point3f cursorScreen3d;
@@ -777,23 +738,70 @@ void MultiCursorAppCpp::setCursor(CvBlobs blobs)
 			cursorScreen3d.z = 0.0f;
 
 			// Calculate cursor position in pixel coordinate
-#ifdef USE_KINECT_V1
 			float screen3dTo2d = 246 / 0.432f;
 			userData[blobID].cursorInfo.position.x = cursorScreen3d.x * screen3dTo2d;
 			userData[blobID].cursorInfo.position.y = cursorScreen3d.y * screen3dTo2d;
-#else
-			Mat cursor3d = (Mat_<float>(3, 1) << cursorScreen3d.x, cursorScreen3d.y, 1);
-			Mat cursor2d = TDisplay2Pixel * cursor3d;
-			//cursor2d /= *cursor2d.ptr<float>(2, 1);
-			userData[blobID].cursorInfo.position.x =  *cursor2d.ptr<float>(0, 0);
-			userData[blobID].cursorInfo.position.y =  *cursor2d.ptr<float>(1, 0);
-
-			//userData[blobID].cursorInfo.position.y = (*TDisplay2Pixel.ptr<float>(1, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(1, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(1, 2));
-			//userData[blobID].cursorInfo.position.x = (*TDisplay2Pixel.ptr<float>(0, 0) * cursorScreen3d.x + *TDisplay2Pixel.ptr<float>(0, 1) * cursorScreen3d.y + *TDisplay2Pixel.ptr<float>(0, 2));
-#endif
+			userData[blobID].cursorInfo.isShownCursor;
 		}
 		++blobID;
 	}
+#else
+	INT blobID = 0;
+	for (CvBlobs::const_iterator it = blobs.begin(); it != blobs.end(); ++it) 
+	{
+		userData[blobID].cursorInfo.isShownCursor = false;
+		if (userData[blobID].handInfo.isTracked)
+		{
+			Mat handPoint = (cv::Mat_<float>(4, 1) << userData[blobID].handInfo.cameraPoint.x * 1000, userData[blobID].handInfo.cameraPoint.y * 1000, userData[blobID].handInfo.cameraPoint.z * 1000, 1);
+			Mat headPoint = (cv::Mat_<float>(4, 1) << userData[blobID].headInfo.cameraPoint.x * 1000, userData[blobID].headInfo.cameraPoint.y * 1000, userData[blobID].headInfo.cameraPoint.z * 1000, 1);
+
+			for (size_t i = 0; i < TKinect2Display.size(); ++i)
+			{
+				//Mat handPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * handPoint;
+				//Mat headPointScreen = TMarker2Display * TKinect2Marker * TKinectDepth2Color * headPoint;
+				Mat handPointScreen = TKinect2Display[i] * handPoint;
+				Mat headPointScreen = TKinect2Display[i] * headPoint;
+
+				// Caliculate the intersection point of vector and screen
+				float xvec = *handPointScreen.ptr<float>(0, 0) - *headPointScreen.ptr<float>(0, 0);
+				float yvec = *handPointScreen.ptr<float>(1, 0) - *headPointScreen.ptr<float>(1, 0);
+				float zvec = *handPointScreen.ptr<float>(2, 0) - *headPointScreen.ptr<float>(2, 0);
+
+				float val = -*handPointScreen.ptr<float>(2, 0) / zvec;
+
+				// Calculate cursor position in real scall
+				Point3f cursorScreen3d;
+				cursorScreen3d.x = val * xvec + *headPointScreen.ptr<float>(0, 0);
+				cursorScreen3d.y = val * yvec + *headPointScreen.ptr<float>(1, 0);
+				cursorScreen3d.z = 0.0f;
+
+				// Calculate cursor position in pixel coordinate
+				Mat cursor3d = (Mat_<float>(3, 1) << cursorScreen3d.x, cursorScreen3d.y, 1);
+				Mat cursor2d = TDisplay2Pixel[i] * cursor3d;
+				if (i == 1)
+				{
+					cursor2d.at<float>(1, 0) = -cursor2d.at<float>(1, 0) + 40000;
+				}
+
+				//cursor2d /= *cursor2d.ptr<float>(2, 1);
+				if (0 < *cursor2d.ptr<float>(0, 0) && *cursor2d.ptr<float>(0, 0) < VEC_WIN_WIDTH[0]
+					&& 0 < *cursor2d.ptr<float>(1, 0) && *cursor2d.ptr<float>(1, 0) < VEC_WIN_HEIGHT[0])
+				{
+					userData[blobID].cursorInfo.isShownCursor = true;
+					userData[blobID].cursorInfo.displayNum = i;
+					userData[blobID].cursorInfo.position.x = *cursor2d.ptr<float>(0, 0);
+					userData[blobID].cursorInfo.position.y = *cursor2d.ptr<float>(1, 0);
+				}
+
+				
+				if (i == 1)
+					cout << cursor3d << endl;
+
+			}
+		}
+		++blobID;
+	}
+#endif
 }
 
 void MultiCursorAppCpp::MouseControl(float x, float y)
@@ -810,55 +818,80 @@ void MultiCursorAppCpp::MouseControl(float x, float y)
 
 void MultiCursorAppCpp::initGL(int argc, char* argv[])
 {
-	glutInitWindowPosition(0, 0);
-	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-	glutCreateWindow("MultiCursorAppCpp");
 
-	//// Register callback functions
-	//glutReshapeFunc(sreshape);
-	glutDisplayFunc(sdisplay);
-	glutIdleFunc(sidle);
-	glutKeyboardFunc(skeyboard);
-	//glutMouseFunc(smouse);
+	WinIDs = new int[TKinect2Display.size()];
+	for (size_t i = 0; i < TKinect2Display.size(); ++i)
+	{
+		glutInitWindowPosition(i*20, 0);
+		//glutInitWindowPosition(windowOffsetX[i], 0);
+		glutInitWindowSize(VEC_WIN_WIDTH[i], VEC_WIN_HEIGHT[i]);
 
-	glClearColor(1.0, 1.0, 1.0, 1.0);
+		glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+		char winName[8];
+		_itoa((int)i, winName, 10);
+		WinIDs[i] = glutCreateWindow(winName);
 
-	/* Camera setup */
-	glViewport(0, 0, kinectBasics.widthDepth, kinectBasics.heightDepth);
-	glLoadIdentity();
+		//// Register callback functions
+		//glutReshapeFunc(sreshape);
+		glutDisplayFunc(sdisplay);
+		glutIdleFunc(sidle);
+		glutKeyboardFunc(skeyboard);
+		glutMouseFunc(smouse);
 
-	/* GLのウィンドウをフルスクリーンに */
-	//GLのデバイスコンテキストハンドル取得
-	HDC glDc = wglGetCurrentDC();
-	//ウィンドウハンドル取得
-	HWND hWnd = WindowFromDC(glDc);
-	//ウィンドウの属性と位置変更
-	SetWindowLong(hWnd, GWL_STYLE, WS_POPUP);
-	SetWindowPos(hWnd, HWND_TOP, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, SWP_SHOWWINDOW);
+		glClearColor(1.0, 1.0, 1.0, 1.0);
+
+		/* Camera setup */
+		glViewport(0, 0, kinectBasics.widthDepth, kinectBasics.heightDepth);
+		glLoadIdentity();
+
+		if (i == 0){
+			/* GLのウィンドウをフルスクリーンに */
+			//GLのデバイスコンテキストハンドル取得
+			glutSetWindow(WinIDs[i]);
+			HDC glDc = wglGetCurrentDC();
+			//ウィンドウハンドル取得
+			HWND hWnd = WindowFromDC(glDc);
+			//ウィンドウの属性と位置変更
+			SetWindowLong(hWnd, GWL_STYLE, WS_POPUP);
+			SetWindowPos(hWnd, HWND_TOP, windowOffsetX[i], 0, VEC_WIN_WIDTH[i], VEC_WIN_HEIGHT[i], SWP_SHOWWINDOW);
+		}
+	}
 }
 
 void MultiCursorAppCpp::display(void)
 {
-	const float divisionX = 6;
-	float cellLength = WINDOW_WIDTH / divisionX;
+	const float divisionX = 12;
+	float cellLength = VEC_WIN_WIDTH[0] / divisionX;
 
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
+	for (size_t i = 0; i < VEC_WIN_WIDTH.size(); ++i)
+	{
+		glutSetWindow(WinIDs[(int)0]);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
 	if (userData.size() > 0)
 	{
 		for (int i = 0; i < userData.size(); ++i)
 		{
-			if (userData[i].cursorInfo.isShownCursor)
+			if (!userData.empty() && userData[i].cursorInfo.isShownCursor)
 			{
-#if 0		// 大体の位置
+				// 描画ウィンドウをセット
+				glutSetWindow(WinIDs[userData[i].cursorInfo.displayNum]);
+
+				int windowWidth = VEC_WIN_WIDTH[userData[i].cursorInfo.displayNum];
+				int windowHeight = VEC_WIN_HEIGHT[userData[i].cursorInfo.displayNum];
+				windowWidth = windowWidth;
+				windowHeight = windowHeight;
+
+#if 1			// 分割したグリッドでカーソル描画
 				int posX = (int)(userData[i].cursorInfo.position.x) / (int)(cellLength) * cellLength;
-				int posY = (int)(WINDOW_HEIGHT - userData[i].cursorInfo.position.y) / (int)(cellLength) * cellLength;
+				int posY = ((int)(windowHeight - userData[i].cursorInfo.position.y) / (int)(cellLength) + 1) * cellLength;
 					
-				float posXGL = ((float)posX - (float)WINDOW_WIDTH / 2) / ((float)WINDOW_WIDTH / 2);
-				float posYGL = ((float)WINDOW_HEIGHT - (float)posY - (float)WINDOW_HEIGHT / 2) / ((float)WINDOW_HEIGHT / 2);
-				float ofX = cellLength / ((float)WINDOW_WIDTH / 2);
-				float ofY = cellLength / ((float)WINDOW_HEIGHT / 2);
+				float posXGL = ((float)posX - (float)windowWidth / 2) / ((float)windowWidth / 2);
+				float posYGL = ((float)posY - (float)windowHeight / 2) / ((float)windowHeight / 2);
+				float ofX = cellLength / ((float)windowWidth / 2);
+				float ofY = cellLength / ((float)windowHeight / 2);
 				glColor4f(0.1f, 1.0f, 0.0f, 1.0f);
 				glBegin(GL_QUADS);
 				glVertex2f(posXGL, posYGL);
@@ -869,17 +902,17 @@ void MultiCursorAppCpp::display(void)
 				//cout << posXGL << ", " << posYGL << endl;
 #endif
 
-#if 1		// 正確なポインタ
+#if 1		// 正確な位置を表すポインタ描画
 #ifdef USE_KINECT_V1
-				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH, -(userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT);
+				Point2f cursorPos((userData[i].cursorInfo.position.x - windowWidth / 2) / windowWidth, -(userData[i].cursorInfo.position.y - windowHeight / 2) / windowHeight);
 #else
-				Point2f cursorPos((userData[i].cursorInfo.position.x - WINDOW_WIDTH / 2) / WINDOW_WIDTH * 2, (userData[i].cursorInfo.position.y - WINDOW_HEIGHT / 2) / WINDOW_HEIGHT * 2);
+				Point2f cursorPos((userData[i].cursorInfo.position.x - windowWidth / 2) / windowWidth * 2, (windowHeight - userData[i].cursorInfo.position.y - windowHeight / 2) / windowHeight * 2);
 #endif
 				glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 				glBegin(GL_QUADS);
 				float offset = 40;
-				float offsetX = (offset / (float)WINDOW_WIDTH);
-				float offsetY = (offset / (float)WINDOW_HEIGHT);
+				float offsetX = (offset / (float)windowWidth);
+				float offsetY = (offset / (float)windowHeight);
 				glVertex2f(cursorPos.x, cursorPos.y);
 				glVertex2f(cursorPos.x + offsetX, cursorPos.y);
 				glVertex2f(cursorPos.x + offsetX, cursorPos.y + offsetY);
@@ -899,7 +932,11 @@ void MultiCursorAppCpp::idle(void)
 {
 	this->run();
 
-	glutPostRedisplay();
+	for (size_t i = 0; i < VEC_WIN_WIDTH.size(); ++i)
+	{
+		glutSetWindow(WinIDs[i]);
+		glutPostRedisplay();
+	}
 }
 
 void MultiCursorAppCpp::keyboard(unsigned char key, int x, int y)
@@ -938,29 +975,52 @@ static void skeyboard(unsigned char key, int x, int y)
 
 void MultiCursorAppCpp::loadCalibData()
 {
-	FileStorage cvfsTd2c(KINECT_D2C_TRANS_FILENAME, CV_STORAGE_READ);
-	FileNode nodeTd2c(cvfsTd2c.fs, NULL);
-	FileNode fnTd2c = nodeTd2c[string("mat_array")];
-	read(fnTd2c[0], TKinectDepth2Color);
-	//cout << TKinectDepth2Color << endl;
+	windowOffsetX.push_back(0);
 
-	FileStorage cvfsTk2m(KINECT_TRANS_FILENAME, CV_STORAGE_READ);
-	FileNode nodeTk2m(cvfsTk2m.fs, NULL);
-	FileNode fnTk2m = nodeTk2m[string("T_K2M")];
-	read(fnTk2m[0], TKinect2Marker);
-	//cout << TKinect2Marker << endl;
+	// Load each display informations
+	for (size_t i = 0; i < DISP_INFO_FILENAMES.size(); ++i)
+	{
+		FileStorage cvfs(DISP_INFO_FILENAMES[i], CV_STORAGE_READ);
+		FileNode node(cvfs.fs, NULL);
 
-	FileStorage cvfsTm2d(MARKER_TRANS_FILENAME, CV_STORAGE_READ);
-	FileNode nodeTm2d(cvfsTm2d.fs, NULL);
-	FileNode fnTm2d = nodeTm2d[string("T_M2D")];
-	read(fnTm2d[0], TMarker2Display);
-	//cout << TMarker2Display << endl;
+		// Loat window size
+		int winWidth = node["WindowWidth"];
+		int winHeight = node["WindowHeight"];
+		FileNode fn = node[string("mat_array")];
+		
+		// Load transformation matrixes
+		Mat TK2D, TD2P;
+		read(fn[0], TK2D);	// Load transformation matrix from kinect depth camera to display plane
+		*TK2D.ptr<float>(0, 3) *= -1;	// 左右反転を直す
+		read(fn[1], TD2P);	// Load transformation matrix from display plane to display pixel image 
 
-	FileStorage cvfsTd2p(DISP_TRANS_FILENAME, CV_STORAGE_READ);
-	FileNode nodeTd2p(cvfsTd2p.fs, NULL);
-	FileNode fnTd2p = nodeTd2p[string("disp1")];
-	read(fnTd2p[0], TDisplay2Pixel);
-	//cout << TDisplay2Pixel << endl;
+		if (winWidth > 0 && winHeight > 0 && !TK2D.empty() && !TD2P.empty())
+		{
+			VEC_WIN_WIDTH.push_back(winWidth);
+			VEC_WIN_HEIGHT.push_back(winHeight);
+			TKinect2Display.push_back(TK2D);
+			TDisplay2Pixel.push_back(TD2P);
+
+			int offsetX = windowOffsetX[i - 1] + winWidth;
+			windowOffsetX.push_back(offsetX);
+			
+			cout << "Succeeded to load display[" << i << "]" << endl;
+			cout << "(width, height) = " << winWidth << ", " << winHeight << endl;
+			cout << "TKinect2Display: " << endl << TKinect2Display[i] << endl;
+			cout << "TDisplay2Pixel: " << endl << TDisplay2Pixel[i] << endl;
+		}
+		else
+		{
+			cout << "Failed to load display[" << i << "]" << endl;
+		}
+	}
+
+	if (VEC_WIN_WIDTH.size() <= 0)
+	{
+		cout << "Error(loadCalibData): No display information was loaded" << endl;
+		exit(0);
+	}
+
 }
 
 void MultiCursorAppCpp::showHelp()
@@ -990,6 +1050,11 @@ int main(int argc, char* argv[])
 #ifdef USE_KINECT_V1
 	app.initKinect();
 #else
+
+#ifndef USE_COLOR_V2
+	kinectBasics.SelectUsingData(true, false);
+#endif
+
 	kinectBasics.SetupKinectV2();
 #endif
 	glutMainLoop();
@@ -1002,14 +1067,42 @@ int main(int argc, char* argv[])
 
 // 今のところ使わない
 
-//void MultiCursorAppCpp::mouse(int button, int state, int mouse_x, int mouse_y)
-//{
-//}
+void MultiCursorAppCpp::mouse(int button, int state, int mouse_x, int mouse_y)
+{
+	switch (button) {
+	case GLUT_LEFT_BUTTON:
+		printf("left");
+		break;
+	case GLUT_MIDDLE_BUTTON:
+		printf("middle");
+		break;
+	case GLUT_RIGHT_BUTTON:
+		printf("right");
+		break;
+	default:
+		break;
+	}
 
-//void smouse(int button, int state, int mouse_x, int mouse_y)
-//{
-//	app.mouse(button, state, mouse_x, mouse_y);
-//}
+	printf(" button is ");
+
+	switch (state) {
+	case GLUT_UP:
+		printf("up");
+		break;
+	case GLUT_DOWN:
+		printf("down");
+		break;
+	default:
+		break;
+	}
+
+	printf(" at (%d, %d)\n", mouse_x, mouse_y);
+}
+
+void smouse(int button, int state, int mouse_x, int mouse_y)
+{
+	app.mouse(button, state, mouse_x, mouse_y);
+}
 
 //static void sreshape(int w, int h)
 //{
